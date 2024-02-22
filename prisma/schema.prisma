@@ -1,0 +1,34 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String  @id @default(uuid())
+  userId             String
+  guildId            String
+  storygraphUsername String
+  isUserFriends      Boolean
+  books              Book[]
+  isFirstLookup      Boolean
+
+  creationDate DateTime @default(now())
+  updatedDate  DateTime @updatedAt
+}
+
+model Book {
+  id     String  @id
+  title  String
+  User   User?   @relation(fields: [userId], references: [id])
+  userId String?
+
+  creationDate DateTime @default(now())
+  updatedDate  DateTime @updatedAt
+}

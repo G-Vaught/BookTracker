@@ -1,0 +1,27 @@
+{
+	"name": "booktracker",
+	"version": "1.0.0",
+	"description": "",
+	"main": "src/main.ts",
+	"scripts": {
+		"dev": "nodemon src/main.ts",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"@prisma/client": "^5.10.2",
+		"cron": "^3.1.6",
+		"discord.js": "^14.14.1",
+		"dotenv": "^16.4.4",
+		"nodemon": "^3.0.3",
+		"puppeteer": "^22.1.0"
+	},
+	"devDependencies": {
+		"@types/node": "^20.11.19",
+		"prisma": "^5.10.2",
+		"ts-node": "^10.9.2",
+		"typescript": "^5.3.3"
+	}
+}
