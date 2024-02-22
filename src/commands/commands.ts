@@ -20,9 +20,9 @@ export async function initCommands() {
 }
 
 export const addUserCommand: Command = {
-	name: 'addUser',
+	name: 'adduser',
 	builder: new SlashCommandBuilder()
-		.setName('addUser')
+		.setName('adduser')
 		.setDescription('Add a user by providing their username and storygraph url')
 		.addMentionableOption(option => option.setName('user').setDescription('User to associate').setRequired(true))
 		.addStringOption(option =>
@@ -56,13 +56,13 @@ export const addUserCommand: Command = {
 };
 
 export const editUserCommand: Command = {
-	name: 'editUser',
+	name: 'edituser',
 	builder: new SlashCommandBuilder(),
 	handler: async (interaction: ChatInputCommandInteraction, prisma: PrismaClient) => {}
 };
 
 export const removeUserCommand: Command = {
-	name: 'removeUser',
+	name: 'removeuser',
 	builder: new SlashCommandBuilder(),
 	handler: async (interaction: ChatInputCommandInteraction, prisma: PrismaClient) => {}
 };
