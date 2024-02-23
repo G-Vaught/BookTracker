@@ -68,7 +68,7 @@ async function handleUsers(prisma: PrismaClient, page: Page, client: Client) {
 						where: {
 							id_userId: {
 								id: finishedBook.id,
-								userId: user.userId
+								userId: finishedBook.userId
 							}
 						}
 					});
