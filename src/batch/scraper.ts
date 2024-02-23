@@ -38,6 +38,7 @@ async function handleUsers(page: Page, client: Client) {
 			const newBooks = books.filter(book => !dbBooks.map(db => db.id).includes(book.id));
 			console.log('user', user.storygraphUsername);
 			if (newBooks) {
+				console.log('New Books', newBooks);
 				for (const newBook of newBooks) {
 					const newDbBook = await prisma.book.create({
 						data: {
@@ -56,6 +57,7 @@ async function handleUsers(page: Page, client: Client) {
 				}
 			}
 			if (finishedBooks) {
+				console.log('Finished Books', finishedBooks);
 				for (const finishedBook of finishedBooks) {
 					await prisma.book.delete({
 						where: {
