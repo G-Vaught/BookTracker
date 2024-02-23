@@ -1,6 +1,7 @@
 import { PrismaClient, User } from '@prisma/client';
 import { Client, TextChannel } from 'discord.js';
 import puppeteer, { Page } from 'puppeteer';
+import { prisma } from '../services/prisma';
 
 const BASE_STORYGRAPH_URL = 'https://app.thestorygraph.com';
 const SIGNIN_URL = `${BASE_STORYGRAPH_URL}/users/sign_in`;
@@ -12,19 +13,16 @@ const signin_password_id = '#user_password';
 const signin_submit_id = '#sign-in-btn';
 
 export async function scrapeBooks(client: Client) {
-	const prisma = new PrismaClient();
 	const browser = await puppeteer.launch({ headless: true });
 	const [page] = await browser.pages();
 	await signin(page);
 
-	await handleUsers(prisma, page, client);
+	await handleUsers(page, client);
 
 	await browser.close();
-
-	await prisma.$disconnect();
 }
 
-async function handleUsers(prisma: PrismaClient, page: Page, client: Client) {
+async function handleUsers(page: Page, client: Client) {
 	try {
 		const users = await prisma.user.findMany({
 			include: {
@@ -38,12 +36,7 @@ async function handleUsers(prisma: PrismaClient, page: Page, client: Client) {
 			const currentBooks = dbBooks.filter(db => books.map(book => book.id).includes(db.id));
 			const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
 			const newBooks = books.filter(book => !dbBooks.map(db => db.id).includes(book.id));
-			// const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
 			console.log('user', user.storygraphUsername);
-			console.log('current books', currentBooks);
-			console.log('finished books', finishedBooks);
-			console.log('new books', newBooks);
-
 			if (newBooks) {
 				for (const newBook of newBooks) {
 					const newDbBook = await prisma.book.create({

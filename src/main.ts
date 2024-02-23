@@ -1,4 +1,3 @@
-import { PrismaClient } from '@prisma/client';
 import { Client, Collection, Events, GatewayIntentBits } from 'discord.js';
 import { runBatch } from './batch/run';
 import { Command } from './commands/command.model';
@@ -15,8 +14,6 @@ const client = new Client({
 		GatewayIntentBits.MessageContent
 	]
 });
-
-const prisma = new PrismaClient();
 
 const commands = new Collection<string, Command>();
 
@@ -35,7 +32,7 @@ client.on('interactionCreate', async interaction => {
 	const command = commands.get(interaction.commandName);
 
 	try {
-		command?.handler(interaction, prisma);
+		command?.handler(interaction);
 	} catch (error) {
 		console.log('Error executing command', error);
 		interaction.reply('Error executing command');

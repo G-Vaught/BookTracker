@@ -1,6 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import { ChatInputCommandInteraction, REST, Routes, SlashCommandBuilder } from 'discord.js';
 import { getMentionUserText } from '../batch/scraper';
+import { prisma } from '../services/prisma';
 import { Command } from './command.model';
 
 export async function initCommands() {
@@ -29,7 +29,7 @@ export const addUserCommand: Command = {
 		.addStringOption(option =>
 			option.setName('storygraph-username').setDescription('Username on Storygraph').setRequired(true)
 		),
-	handler: async (interaction: ChatInputCommandInteraction, prisma: PrismaClient) => {
+	handler: async (interaction: ChatInputCommandInteraction) => {
 		const userId = interaction.options.get('user')?.value as string;
 		let user = await prisma.user.findFirst({
 			where: {
@@ -61,7 +61,7 @@ export const removeUserCommand: Command = {
 		.setName('removeuser')
 		.setDescription('Remove a User to be tracked')
 		.addMentionableOption(option => option.setName('user').setDescription('User to associate').setRequired(true)),
-	handler: async (interaction: ChatInputCommandInteraction, prisma: PrismaClient) => {
+	handler: async (interaction: ChatInputCommandInteraction) => {
 		const userId = interaction.options.get('user')!.value as string;
 		let user = await prisma.user.findFirst({
 			where: {
