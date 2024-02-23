@@ -66,7 +66,10 @@ async function handleUsers(prisma: PrismaClient, page: Page, client: Client) {
 				for (const finishedBook of finishedBooks) {
 					await prisma.book.delete({
 						where: {
-							id: finishedBook.id
+							id_userId: {
+								id: finishedBook.id,
+								userId: user.userId
+							}
 						}
 					});
 
@@ -93,7 +96,7 @@ async function handleUsers(prisma: PrismaClient, page: Page, client: Client) {
 	}
 }
 
-function getMentionUserText(userId: string) {
+export function getMentionUserText(userId: string) {
 	return `<@${userId}>`;
 }
 

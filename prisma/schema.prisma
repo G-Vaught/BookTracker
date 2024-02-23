@@ -21,14 +21,18 @@ model User {
 
   creationDate DateTime @default(now())
   updatedDate  DateTime @updatedAt
+
+  @@unique([userId, guildId])
 }
 
 model Book {
-  id     String  @id
+  id     String
   title  String
-  User   User?   @relation(fields: [userId], references: [id])
-  userId String?
+  User   User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
 
   creationDate DateTime @default(now())
   updatedDate  DateTime @updatedAt
+
+  @@id([id, userId], name: "id_userId")
 }
