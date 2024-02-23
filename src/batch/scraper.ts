@@ -38,7 +38,6 @@ async function handleUsers(prisma: PrismaClient, page: Page, client: Client) {
 			const currentBooks = dbBooks.filter(db => books.map(book => book.id).includes(db.id));
 			const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
 			const newBooks = books.filter(book => !dbBooks.map(db => db.id).includes(book.id));
-			// const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
 			console.log('user', user.storygraphUsername);
 			console.log('current books', currentBooks);
 			console.log('finished books', finishedBooks);

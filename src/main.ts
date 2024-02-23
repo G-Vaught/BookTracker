@@ -22,10 +22,11 @@ const commands = new Collection<string, Command>();
 
 COMMANDS.forEach(command => commands.set(command.name, command));
 
-initCommands();
-
-client.once(Events.ClientReady, readyClient => {
+client.once(Events.ClientReady, async readyClient => {
 	console.log('Client Ready');
+	for (const guild of client.guilds.cache.values()) {
+		await initCommands(guild);
+	}
 	runBatch(readyClient);
 });
 

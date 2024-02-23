@@ -1,16 +1,16 @@
 import { PrismaClient } from '@prisma/client';
-import { ChatInputCommandInteraction, REST, Routes, SlashCommandBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, Guild, REST, Routes, SlashCommandBuilder } from 'discord.js';
 import { getMentionUserText } from '../batch/scraper';
 import { Command } from './command.model';
 
-export async function initCommands() {
+export async function initCommands(guild: Guild) {
 	const rest = new REST({
 		version: '10'
 	}).setToken(process.env.DISCORD_TOKEN!);
 	try {
 		console.log('Registering Commands');
 
-		await rest.put(Routes.applicationGuildCommands(process.env.DISCORD_ID!, process.env.GUILD_ID!), {
+		await rest.put(Routes.applicationGuildCommands(process.env.DISCORD_ID!, guild.id), {
 			body: COMMANDS.map(command => command.builder.toJSON())
 		});
 
@@ -42,7 +42,7 @@ export const addUserCommand: Command = {
 				data: {
 					userId: userId,
 					guildId: interaction.guild!.id,
-					storygraphUsername: interaction.options.get('storygraph-username')?.value as string,
+					storygraphUsername: interaction.options.get('storygraph-username', true).value as string,
 					isFirstLookup: true,
 					isUserFriends: false
 				}
