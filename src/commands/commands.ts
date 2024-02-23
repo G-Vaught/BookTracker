@@ -30,16 +30,17 @@ export const addUserCommand: Command = {
 			option.setName('storygraph-username').setDescription('Username on Storygraph').setRequired(true)
 		),
 	handler: async (interaction: ChatInputCommandInteraction, prisma: PrismaClient) => {
+		const userId = interaction.options.get('user')?.value as string;
 		let user = await prisma.user.findFirst({
 			where: {
-				userId: interaction.options.get('user')?.value as string
+				userId: userId
 			}
 		});
 
 		if (!user) {
 			user = await prisma.user.create({
 				data: {
-					userId: interaction.user.id,
+					userId: userId,
 					guildId: interaction.guild!.id,
 					storygraphUsername: interaction.options.get('storygraph-username')?.value as string,
 					isFirstLookup: true,
