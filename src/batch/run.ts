@@ -4,8 +4,7 @@ import { scrapeBooks } from './scraper';
 
 export function runBatch(client: Client) {
 	const updateBooks = new CronJob(
-		'*/5 * * * *',
-		// '* * * * *',
+		'*/30 * * * *', //Every 30 minutes
 		async () => {
 			console.log('Starting batch at', new Date().toLocaleString());
 			await scrapeBooks(client);
