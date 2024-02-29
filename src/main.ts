@@ -2,6 +2,7 @@ import { Client, Collection, Events, GatewayIntentBits } from 'discord.js';
 import { runBatch } from './batch/run';
 import { Command } from './commands/command.model';
 import { COMMANDS, initCommands } from './commands/commands';
+import { log } from './services/log.service';
 require('dotenv').config();
 
 const token = process.env.DISCORD_TOKEN;
@@ -22,7 +23,7 @@ COMMANDS.forEach(command => commands.set(command.name, command));
 initCommands();
 
 client.once(Events.ClientReady, readyClient => {
-	console.log('Client Ready');
+	log('Client Ready');
 	runBatch(readyClient);
 });
 
@@ -34,7 +35,7 @@ client.on('interactionCreate', async interaction => {
 	try {
 		command?.handler(interaction);
 	} catch (error) {
-		console.log('Error executing command', error);
+		log('Error executing command', error);
 		interaction.reply('Error executing command');
 	}
 });

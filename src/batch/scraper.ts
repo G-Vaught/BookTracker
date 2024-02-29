@@ -1,6 +1,7 @@
 import { PrismaClient, User } from '@prisma/client';
 import { Client, TextChannel } from 'discord.js';
 import puppeteer, { Page } from 'puppeteer';
+import { log } from '../services/log.service';
 import { prisma } from '../services/prisma';
 
 const BASE_STORYGRAPH_URL = 'https://app.thestorygraph.com';
@@ -31,14 +32,14 @@ async function handleUsers(page: Page, client: Client) {
 		});
 		for (const user of users) {
 			const dbBooks = user.books;
-			console.log('user', user.storygraphUsername);
+			log('user', user.storygraphUsername);
 			await page.goto(`${BASE_CURRENT_READING_URL}/${user.storygraphUsername}`);
 			const books = await fetchBooksByUser(user, prisma, page, client);
 			const currentBooks = dbBooks.filter(db => books.map(book => book.id).includes(db.id));
 			const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
 			const newBooks = books.filter(book => !dbBooks.map(db => db.id).includes(book.id));
 			if (newBooks) {
-				console.log('New Books', newBooks);
+				log('New Books', newBooks);
 				for (const newBook of newBooks) {
 					const newDbBook = await prisma.book.create({
 						data: {
@@ -57,7 +58,7 @@ async function handleUsers(page: Page, client: Client) {
 				}
 			}
 			if (finishedBooks) {
-				console.log('Finished Books', finishedBooks);
+				log('Finished Books', finishedBooks);
 				for (const finishedBook of finishedBooks) {
 					await prisma.book.delete({
 						where: {
@@ -87,7 +88,7 @@ async function handleUsers(page: Page, client: Client) {
 			}
 		}
 	} catch (error) {
-		console.log('Error fetching books', error);
+		log('Error fetching books', error);
 	}
 }
 
@@ -99,10 +100,14 @@ async function fetchBooksByUser(user: User, prisma: PrismaClient, page: Page, cl
 	/*
     Use class 'read-books-panes' to find book divs
     For each div in span, get book id with attr 'data-book-id' along with other info
-    OPTIONAL Use 'progress-tracker-pane' to try and get read %. 
     */
 	const books: Book[] = [];
-	await page.waitForSelector('.read-books-panes');
+	await page.waitForSelector('main');
+	if (!(await page.$('.read-books-panes'))) {
+		console.log('No books currently reading');
+		return books;
+	}
+
 	const bookDivs = await page.$$('.read-books-panes > div');
 	for (const bookDiv of bookDivs) {
 		const bookId = await bookDiv.evaluate(el => el.getAttribute('data-book-id'));
