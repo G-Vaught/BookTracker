@@ -1,6 +1,5 @@
 import { ChatInputCommandInteraction, REST, Routes, SlashCommandBuilder } from 'discord.js';
 import { getMentionUserText } from '../batch/scraper';
-import { error, log } from '../services/log.service';
 import { prisma } from '../services/prisma';
 import { Command } from './command.model';
 
@@ -9,15 +8,15 @@ export async function initCommands() {
 		version: '10'
 	}).setToken(process.env.DISCORD_TOKEN!);
 	try {
-		log('Registering Commands');
+		console.log('Registering Commands');
 
 		await rest.put(Routes.applicationGuildCommands(process.env.DISCORD_ID!, process.env.GUILD_ID!), {
 			body: COMMANDS.map(command => command.builder.toJSON())
 		});
 
-		log('Registered Commmands');
+		console.log('Registered Commmands');
 	} catch (e) {
-		error('Error registering Commands', e);
+		console.error('Error registering Commands', e);
 	}
 }
 

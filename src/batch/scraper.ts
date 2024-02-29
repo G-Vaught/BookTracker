@@ -1,7 +1,6 @@
 import { PrismaClient, User } from '@prisma/client';
 import { Client, TextChannel } from 'discord.js';
 import puppeteer, { Page } from 'puppeteer';
-import { log } from '../services/log.service';
 import { prisma } from '../services/prisma';
 
 const BASE_STORYGRAPH_URL = 'https://app.thestorygraph.com';
@@ -32,14 +31,14 @@ async function handleUsers(page: Page, client: Client) {
 		});
 		for (const user of users) {
 			const dbBooks = user.books;
-			log('user', user.storygraphUsername);
+			console.log('user', user.storygraphUsername);
 			await page.goto(`${BASE_CURRENT_READING_URL}/${user.storygraphUsername}`);
 			const books = await fetchBooksByUser(user, prisma, page, client);
 			const currentBooks = dbBooks.filter(db => books.map(book => book.id).includes(db.id));
 			const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
 			const newBooks = books.filter(book => !dbBooks.map(db => db.id).includes(book.id));
 			if (newBooks) {
-				log('New Books', newBooks);
+				console.log('New Books', newBooks);
 				for (const newBook of newBooks) {
 					const newDbBook = await prisma.book.create({
 						data: {
@@ -58,7 +57,7 @@ async function handleUsers(page: Page, client: Client) {
 				}
 			}
 			if (finishedBooks) {
-				log('Finished Books', finishedBooks);
+				console.log('Finished Books', finishedBooks);
 				for (const finishedBook of finishedBooks) {
 					await prisma.book.delete({
 						where: {
@@ -88,7 +87,7 @@ async function handleUsers(page: Page, client: Client) {
 			}
 		}
 	} catch (error) {
-		log('Error fetching books', error);
+		console.log('Error fetching books', error);
 	}
 }
 
