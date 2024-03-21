@@ -32,48 +32,21 @@ async function handleUsers(page: Page, client: Client) {
 		for (const user of users) {
 			const dbBooks = user.books;
 			console.log('user', user.storygraphUsername);
-			await page.goto(`${BASE_CURRENT_READING_URL}/${user.storygraphUsername}`);
-			const books = await fetchBooksByUser(user, prisma, page, client);
-			const currentBooks = dbBooks.filter(db => books.map(book => book.id).includes(db.id));
+			let books: Book[];
+			try {
+				await page.goto(`${BASE_CURRENT_READING_URL}/${user.storygraphUsername}`);
+				books = await fetchBooksByUser(user, prisma, page, client);
+			} catch (e) {
+				console.error(`Error fetching books for user ${user.storygraphUsername}... Skipping`);
+				console.error('Error: ', e);
+				continue;
+			}
 			const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
 			const newBooks = books.filter(book => !dbBooks.map(db => db.id).includes(book.id));
-			if (newBooks) {
-				console.log('New Books', newBooks);
-				for (const newBook of newBooks) {
-					const newDbBook = await prisma.book.create({
-						data: {
-							id: newBook.id,
-							userId: user.id,
-							title: newBook.title
-						}
-					});
 
-					if (!user.isFirstLookup) {
-						await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(
-							`${getMentionUserText(user.userId)} has started **${newBook.title}**!
-                            ${BASE_BOOK_URL}/${newDbBook.id}`
-						);
-					}
-				}
-			}
-			if (finishedBooks) {
-				console.log('Finished Books', finishedBooks);
-				for (const finishedBook of finishedBooks) {
-					await prisma.book.delete({
-						where: {
-							id_userId: {
-								id: finishedBook.id,
-								userId: finishedBook.userId
-							}
-						}
-					});
+			await publishCompletedBooks(newBooks, user, client);
 
-					await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(
-						`${getMentionUserText(user.userId)} has finished **${finishedBook.title}**!
-					    ${BASE_BOOK_URL}/${finishedBook.id}`
-					);
-				}
-			}
+			await publishFinishedBooks(finishedBooks, client, user);
 
 			if (user.isFirstLookup) {
 				await prisma.user.update({
@@ -88,6 +61,75 @@ async function handleUsers(page: Page, client: Client) {
 		}
 	} catch (error) {
 		console.log('Error fetching books', error);
+	}
+}
+
+async function publishFinishedBooks(
+	finishedBooks: { id: string; title: string; userId: string; creationDate: Date; updatedDate: Date }[],
+	client: Client<boolean>,
+	user: { books: { id: string; title: string; userId: string; creationDate: Date; updatedDate: Date }[] } & {
+		id: string;
+		userId: string;
+		guildId: string;
+		storygraphUsername: string;
+		isUserFriends: boolean;
+		isFirstLookup: boolean;
+		creationDate: Date;
+		updatedDate: Date;
+	}
+) {
+	if (finishedBooks) {
+		console.log('Finished Books', finishedBooks);
+		for (const finishedBook of finishedBooks) {
+			await prisma.book.delete({
+				where: {
+					id_userId: {
+						id: finishedBook.id,
+						userId: finishedBook.userId
+					}
+				}
+			});
+
+			await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(
+				`${getMentionUserText(user.userId)} has finished **${finishedBook.title}**!
+					    ${BASE_BOOK_URL}/${finishedBook.id}`
+			);
+		}
+	}
+}
+
+async function publishCompletedBooks(
+	newBooks: Book[],
+	user: { books: { id: string; title: string; userId: string; creationDate: Date; updatedDate: Date }[] } & {
+		id: string;
+		userId: string;
+		guildId: string;
+		storygraphUsername: string;
+		isUserFriends: boolean;
+		isFirstLookup: boolean;
+		creationDate: Date;
+		updatedDate: Date;
+	},
+	client: Client<boolean>
+) {
+	if (newBooks) {
+		console.log('New Books', newBooks);
+		for (const newBook of newBooks) {
+			const newDbBook = await prisma.book.create({
+				data: {
+					id: newBook.id,
+					userId: user.id,
+					title: newBook.title
+				}
+			});
+
+			if (!user.isFirstLookup) {
+				await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(
+					`${getMentionUserText(user.userId)} has started **${newBook.title}**!
+                            ${BASE_BOOK_URL}/${newDbBook.id}`
+				);
+			}
+		}
 	}
 }
 
