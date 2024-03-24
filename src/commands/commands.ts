@@ -121,4 +121,25 @@ export const resetAllUsersCommand: Command = {
 	}
 };
 
-export const COMMANDS: Command[] = [addUserCommand, removeUserCommand, resetAllUsersCommand];
+export const listUsersAndBooks: Command = {
+	name: 'listusers',
+	builder: new SlashCommandBuilder().setName('listusers').setDescription('List users and their current books'),
+	handler: async (interaction: ChatInputCommandInteraction) => {
+		let fullMessage = '```';
+		const users = await prisma.user.findMany();
+		for (const user of users) {
+			const books = await prisma.book.findMany({
+				where: {
+					userId: user.id
+				}
+			});
+			let msg = `${user.storygraphUsername}: \n`;
+			books.forEach(book => (msg += `\t${book.title}\n`));
+			fullMessage += msg;
+		}
+		fullMessage += '```';
+		interaction.reply(fullMessage);
+	}
+};
+
+export const COMMANDS: Command[] = [addUserCommand, removeUserCommand, resetAllUsersCommand, listUsersAndBooks];
