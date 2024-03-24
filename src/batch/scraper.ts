@@ -69,7 +69,7 @@ async function handleUsers(page: Page, client: Client) {
 }
 
 async function publishFinishedBooks(finishedBooks: Book[], client: Client, user: User, page: Page) {
-	if (finishedBooks) {
+	if (finishedBooks.length > 0) {
 		console.log('Finished Books', finishedBooks);
 
 		let scrapedFinishedBooks: SimpleBook[] = [];
@@ -105,7 +105,7 @@ async function publishFinishedBooks(finishedBooks: Book[], client: Client, user:
 async function scrapePageBooks(url: string, user: User, page: Page) {
 	const scrapedBooks: SimpleBook[] = [];
 
-	await page.goto(`${url}/${user.userId}`);
+	await page.goto(`${url}/${user.storygraphUsername}`);
 	await page.waitForSelector('main');
 	if (!(await page.$('.read-books-panes'))) {
 		return scrapedBooks;
@@ -129,7 +129,7 @@ async function scrapePageBooks(url: string, user: User, page: Page) {
 }
 
 async function publishStartedBooks(newBooks: SimpleBook[], user: User, client: Client) {
-	if (newBooks) {
+	if (newBooks.length > 0) {
 		console.log('New Books', newBooks);
 		for (const newBook of newBooks) {
 			const newDbBook = await prisma.book.create({

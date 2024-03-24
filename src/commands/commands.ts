@@ -86,4 +86,39 @@ export const removeUserCommand: Command = {
 	}
 };
 
-export const COMMANDS: Command[] = [addUserCommand, removeUserCommand];
+export const resetAllUsersCommand: Command = {
+	name: 'resetusers',
+	builder: new SlashCommandBuilder()
+		.setName('resetusers')
+		.setDescription('Remove all books and choose to set all users as new users')
+		.addStringOption(option =>
+			option.setName('isnewusers').setDescription('Mark all users as new?').setRequired(true).addChoices(
+				{
+					name: 'Yes',
+					value: 'yes'
+				},
+				{
+					name: 'No',
+					value: 'no'
+				}
+			)
+		),
+	handler: async (interaction: ChatInputCommandInteraction) => {
+		const setIsFirstLookup = interaction.options.get('isnewusers')?.value === 'yes';
+
+		await prisma.book.deleteMany();
+
+		if (setIsFirstLookup) {
+			await prisma.user.updateMany({
+				data: {
+					isFirstLookup: true
+				}
+			});
+		}
+
+		console.log('Reset all users');
+		interaction.reply('Reset all users.');
+	}
+};
+
+export const COMMANDS: Command[] = [addUserCommand, removeUserCommand, resetAllUsersCommand];
