@@ -1,12 +1,14 @@
-import { PrismaClient, User } from '@prisma/client';
+import { Book, User } from '@prisma/client';
 import { Client, TextChannel } from 'discord.js';
 import puppeteer, { Page } from 'puppeteer';
+import { getCurrentDateTime } from '../services/log.service';
 import { prisma } from '../services/prisma';
 
 const BASE_STORYGRAPH_URL = 'https://app.thestorygraph.com';
 const SIGNIN_URL = `${BASE_STORYGRAPH_URL}/users/sign_in`;
 const BASE_CURRENT_READING_URL = `${BASE_STORYGRAPH_URL}/currently-reading`;
 const BASE_BOOK_URL = `${BASE_STORYGRAPH_URL}/books`;
+const FINISHED_BOOKS_URL = `${BASE_STORYGRAPH_URL}/books-read`;
 
 const signin_email_id = '#user_email';
 const signin_password_id = '#user_password';
@@ -32,21 +34,23 @@ async function handleUsers(page: Page, client: Client) {
 		for (const user of users) {
 			const dbBooks = user.books;
 			console.log('user', user.storygraphUsername);
-			let books: Book[];
+			let books: SimpleBook[];
 			try {
-				await page.goto(`${BASE_CURRENT_READING_URL}/${user.storygraphUsername}`);
-				books = await fetchBooksByUser(user, prisma, page, client);
+				books = await scrapePageBooks(BASE_CURRENT_READING_URL, user, page);
 			} catch (e) {
 				console.error(`Error fetching books for user ${user.storygraphUsername}... Skipping`);
 				console.error('Error: ', e);
+				const message = `${getCurrentDateTime()} Error fetching books for user ${user.storygraphUsername}\n\n
+					Error: \`\`\`${e}\`\`\``;
+				client.users.send(process.env.ERROR_MESSAGE_USER_ID!, message);
 				continue;
 			}
 			const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
 			const newBooks = books.filter(book => !dbBooks.map(db => db.id).includes(book.id));
 
-			await publishCompletedBooks(newBooks, user, client);
+			await publishStartedBooks(newBooks, user, client);
 
-			await publishFinishedBooks(finishedBooks, client, user);
+			await publishFinishedBooks(finishedBooks, client, user, page);
 
 			if (user.isFirstLookup) {
 				await prisma.user.update({
@@ -64,22 +68,19 @@ async function handleUsers(page: Page, client: Client) {
 	}
 }
 
-async function publishFinishedBooks(
-	finishedBooks: { id: string; title: string; userId: string; creationDate: Date; updatedDate: Date }[],
-	client: Client<boolean>,
-	user: { books: { id: string; title: string; userId: string; creationDate: Date; updatedDate: Date }[] } & {
-		id: string;
-		userId: string;
-		guildId: string;
-		storygraphUsername: string;
-		isUserFriends: boolean;
-		isFirstLookup: boolean;
-		creationDate: Date;
-		updatedDate: Date;
-	}
-) {
+async function publishFinishedBooks(finishedBooks: Book[], client: Client, user: User, page: Page) {
 	if (finishedBooks) {
 		console.log('Finished Books', finishedBooks);
+
+		let scrapedFinishedBooks: SimpleBook[] = [];
+		try {
+			scrapedFinishedBooks = await scrapePageBooks(FINISHED_BOOKS_URL, user, page);
+		} catch (e) {
+			console.error(`Error scraping finished books for user ${user.storygraphUsername}`);
+			console.error(`Error: ${e}`);
+			return;
+		}
+
 		for (const finishedBook of finishedBooks) {
 			await prisma.book.delete({
 				where: {
@@ -90,28 +91,44 @@ async function publishFinishedBooks(
 				}
 			});
 
-			await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(
-				`${getMentionUserText(user.userId)} has finished **${finishedBook.title}**!
-					    ${BASE_BOOK_URL}/${finishedBook.id}`
-			);
+			//Only show message if user has marked book as 'finished'
+			if (scrapedFinishedBooks.map(book => book.id).includes(finishedBook.id)) {
+				await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(
+					`${getMentionUserText(user.userId)} has finished **${finishedBook.title}**!
+							${BASE_BOOK_URL}/${finishedBook.id}`
+				);
+			}
 		}
 	}
 }
 
-async function publishCompletedBooks(
-	newBooks: Book[],
-	user: { books: { id: string; title: string; userId: string; creationDate: Date; updatedDate: Date }[] } & {
-		id: string;
-		userId: string;
-		guildId: string;
-		storygraphUsername: string;
-		isUserFriends: boolean;
-		isFirstLookup: boolean;
-		creationDate: Date;
-		updatedDate: Date;
-	},
-	client: Client<boolean>
-) {
+async function scrapePageBooks(url: string, user: User, page: Page) {
+	const scrapedBooks: SimpleBook[] = [];
+
+	await page.goto(`${url}/${user.userId}`);
+	await page.waitForSelector('main');
+	if (!(await page.$('.read-books-panes'))) {
+		return scrapedBooks;
+	}
+
+	const bookPanes = await page.$$('.read-books-panes > div');
+
+	for (const bookPane of bookPanes) {
+		const bookId = await bookPane.evaluate(el => el.getAttribute('data-book-id'));
+		const bookTitle = (await page.evaluate(
+			el => el.querySelector('.book-title-author-and-series a')?.textContent,
+			bookPane
+		)) as string;
+		scrapedBooks.push({
+			id: bookId!,
+			title: bookTitle
+		});
+	}
+
+	return scrapedBooks;
+}
+
+async function publishStartedBooks(newBooks: SimpleBook[], user: User, client: Client) {
 	if (newBooks) {
 		console.log('New Books', newBooks);
 		for (const newBook of newBooks) {
@@ -137,34 +154,7 @@ export function getMentionUserText(userId: string) {
 	return `<@${userId}>`;
 }
 
-async function fetchBooksByUser(user: User, prisma: PrismaClient, page: Page, client: Client) {
-	/*
-    Use class 'read-books-panes' to find book divs
-    For each div in span, get book id with attr 'data-book-id' along with other info
-    */
-	const books: Book[] = [];
-	await page.waitForSelector('main');
-	if (!(await page.$('.read-books-panes'))) {
-		console.log('No books currently reading');
-		return books;
-	}
-
-	const bookDivs = await page.$$('.read-books-panes > div');
-	for (const bookDiv of bookDivs) {
-		const bookId = await bookDiv.evaluate(el => el.getAttribute('data-book-id'));
-		const bookTitle = (await page.evaluate(
-			el => el.querySelector('.book-title-author-and-series a')?.textContent,
-			bookDiv
-		)) as string;
-		books.push({
-			id: bookId!,
-			title: bookTitle
-		});
-	}
-	return books;
-}
-
-type Book = {
+type SimpleBook = {
 	id: string;
 	title: string;
 };
