@@ -92,6 +92,11 @@ export const resetAllUsersCommand: Command = {
 		.setName('resetusers')
 		.setDescription('WARNING: Remove all books and set all users as new users'),
 	handler: async (interaction: ChatInputCommandInteraction) => {
+		if (interaction.user.id !== process.env.EKRON_USER_ID) {
+			interaction.reply('You do not have permissions to use this command');
+			return;
+		}
+
 		await prisma.book.deleteMany();
 
 		await prisma.user.updateMany({

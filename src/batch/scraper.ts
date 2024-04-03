@@ -38,11 +38,7 @@ async function handleUsers(page: Page, client: Client) {
 			try {
 				books = await scrapePageBooks(BASE_CURRENT_READING_URL, user, page);
 			} catch (e) {
-				console.error(`Error fetching books for user ${user.storygraphUsername}... Skipping`);
-				console.error('Error: ', e);
-				const message = `${getCurrentDateTime()} Error fetching books for user ${user.storygraphUsername}\n\n
-					Error: \`\`\`${e}\`\`\``;
-				client.users.send(process.env.ERROR_MESSAGE_USER_ID!, message);
+				handleError(user, e, client);
 				continue;
 			}
 			const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
@@ -76,8 +72,7 @@ async function publishFinishedBooks(finishedBooks: Book[], client: Client, user:
 		try {
 			scrapedFinishedBooks = await scrapePageBooks(FINISHED_BOOKS_URL, user, page);
 		} catch (e) {
-			console.error(`Error scraping finished books for user ${user.storygraphUsername}`);
-			console.error(`Error: ${e}`);
+			handleError(user, e, client);
 			return;
 		}
 
@@ -100,6 +95,14 @@ async function publishFinishedBooks(finishedBooks: Book[], client: Client, user:
 			}
 		}
 	}
+}
+
+function handleError(user: User, e: unknown, client: Client) {
+	console.error(`Error scraping finished books for user ${user.storygraphUsername}`);
+	console.error(`Error: ${e}`);
+	const message = `${getCurrentDateTime()} Error fetching finished books for user ${user.storygraphUsername}\n
+				\`\`\`${JSON.stringify(e)}\`\`\``;
+	client.users.send(process.env.EKRON_USER_ID!, message);
 }
 
 async function scrapePageBooks(url: string, user: User, page: Page) {
