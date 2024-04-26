@@ -108,13 +108,17 @@ function handleError(user: User, e: unknown, client: Client) {
 async function scrapePageBooks(url: string, user: User, page: Page) {
 	const scrapedBooks: SimpleBook[] = [];
 
+	console.log(`Starting scrape for user ${user.storygraphUsername}`);
 	await page.goto(`${url}/${user.storygraphUsername}`);
 	await page.waitForSelector('main');
 	if (!(await page.$('.read-books-panes'))) {
+		console.log('Book panes return null, no current books found');
 		return scrapedBooks;
 	}
 
 	const bookPanes = await page.$$('.read-books-panes > div');
+
+	console.log(`Found ${bookPanes.length + 1} number of book panes`);
 
 	for (const bookPane of bookPanes) {
 		const bookId = await bookPane.evaluate(el => el.getAttribute('data-book-id'));
@@ -127,6 +131,8 @@ async function scrapePageBooks(url: string, user: User, page: Page) {
 			title: bookTitle
 		});
 	}
+
+	console.log(`Finished scraping books for user ${user.storygraphUsername}`);
 
 	return scrapedBooks;
 }
