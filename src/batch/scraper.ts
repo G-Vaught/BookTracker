@@ -17,7 +17,15 @@ const signin_submit_id = '#sign-in-btn';
 export async function scrapeBooks(client: Client) {
 	const browser = await puppeteer.launch({ headless: true });
 	const [page] = await browser.pages();
-	await signin(page);
+
+	try {
+		await signin(page);
+	} catch (e) {
+		console.log('Error occurred when signing in.');
+		console.log(e);
+		await browser.close();
+		return;
+	}
 
 	await handleUsers(page, client);
 
@@ -33,7 +41,6 @@ async function handleUsers(page: Page, client: Client) {
 		});
 		for (const user of users) {
 			const dbBooks = user.books;
-			console.log('user', user.storygraphUsername);
 			let books: SimpleBook[];
 			try {
 				books = await scrapePageBooks(BASE_CURRENT_READING_URL, user, page);
@@ -118,7 +125,7 @@ async function scrapePageBooks(url: string, user: User, page: Page) {
 
 	const bookPanes = await page.$$('.read-books-panes > div');
 
-	console.log(`Found ${bookPanes.length + 1} number of book panes`);
+	console.log(`Found ${bookPanes.length + 1} book pane(s)`);
 
 	for (const bookPane of bookPanes) {
 		const bookId = await bookPane.evaluate(el => el.getAttribute('data-book-id'));
