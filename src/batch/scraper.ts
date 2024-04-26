@@ -117,6 +117,7 @@ async function scrapePageBooks(url: string, user: User, page: Page) {
 
 	console.log(`Starting scrape for user ${user.storygraphUsername}`);
 	await page.goto(`${url}/${user.storygraphUsername}`);
+	console.log(`Page navigated to url: ${page.url()}`);
 	await page.waitForSelector('main');
 	if (!(await page.$('.read-books-panes'))) {
 		console.log('Book panes return null, no current books found');
