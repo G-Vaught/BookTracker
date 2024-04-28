@@ -23,6 +23,7 @@ export async function scrapeBooks(client: Client) {
 	} catch (e) {
 		console.log('Error occurred when signing in.');
 		console.log(e);
+		sendAdminMessage(`Error occurred when signing in:\n ${JSON.stringify(e)}`, client);
 		await browser.close();
 		return;
 	}
@@ -68,6 +69,7 @@ async function handleUsers(page: Page, client: Client) {
 		}
 	} catch (error) {
 		console.log('Error fetching books', error);
+		sendAdminMessage(`Error fetching books:\n ${JSON.stringify(error)}`, client);
 	}
 }
 
@@ -109,6 +111,10 @@ function handleError(user: User, e: unknown, client: Client) {
 	console.error(`Error: ${e}`);
 	const message = `${getCurrentDateTime()} Error fetching finished books for user ${user.storygraphUsername}\n
 				\`\`\`${JSON.stringify(e)}\`\`\``;
+	sendAdminMessage(message, client);
+}
+
+function sendAdminMessage(message: string, client: Client) {
 	client.users.send(process.env.EKRON_USER_ID!, message);
 }
 
