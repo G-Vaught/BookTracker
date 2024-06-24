@@ -52,7 +52,7 @@ async function handleUsers(page: Page, client: Client) {
 			const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
 			const newBooks = books.filter(book => !dbBooks.map(db => db.id).includes(book.id));
 
-			await publishStartedBooks(newBooks, user, client);
+			await publishStartedBooks(newBooks, dbBooks, user, client);
 
 			await publishFinishedBooks(finishedBooks, client, user, page);
 
@@ -151,7 +151,7 @@ async function scrapePageBooks(url: string, user: User, page: Page) {
 	return scrapedBooks;
 }
 
-async function publishStartedBooks(newBooks: SimpleBook[], user: User, client: Client) {
+async function publishStartedBooks(newBooks: SimpleBook[], currentBooks: Book[], user: User, client: Client) {
 	if (newBooks.length > 0) {
 		console.log('New Books', newBooks);
 		for (const newBook of newBooks) {
@@ -163,7 +163,8 @@ async function publishStartedBooks(newBooks: SimpleBook[], user: User, client: C
 				}
 			});
 
-			if (!user.isFirstLookup) {
+			//Skip book if title matches current book, likely version change
+			if (!user.isFirstLookup && !currentBooks.some(currentBook => newBook.title === currentBook.title)) {
 				await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(
 					`${getMentionUserText(user.userId)} has started **${newBook.title}**!
                             ${BASE_BOOK_URL}/${newDbBook.id}`
