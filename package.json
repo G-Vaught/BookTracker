@@ -14,7 +14,7 @@
 	"license": "ISC",
 	"dependencies": {
 		"@prisma/client": "^5.10.2",
-		"cron": "^3.1.6",
+		"croner": "^8.1.1",
 		"discord.js": "^14.14.1",
 		"dotenv": "^16.4.4",
 		"nodemon": "^3.0.3",
