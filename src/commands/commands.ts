@@ -160,7 +160,7 @@ export const changeUserDataSourceCommand: Command = {
 					})
 				]);
 
-				interaction.reply(`User has been updated to use ${dbUser.dataSourceCode}`);
+				interaction.reply(`User has been updated to use ${newDataSourceCode}`);
 			}
 		}
 	}
