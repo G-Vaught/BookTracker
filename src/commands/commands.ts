@@ -110,6 +110,9 @@ export const changeUserDataSourceCommand: Command = {
 				.setDescription('Choose what site user uses')
 				.addChoices(DataSourceCodeOptions)
 				.setRequired(true)
+		)
+		.addStringOption(option =>
+			option.setName('data-source-user-id').setDescription('Username for new data source').setRequired(true)
 		),
 	handler: async (interaction: ChatInputCommandInteraction) => {
 		const user = interaction.options.getUser('user');
@@ -127,6 +130,11 @@ export const changeUserDataSourceCommand: Command = {
 				userId: user.id
 			}
 		});
+		const newDataSourceUserId = interaction.options.getString('data-source-user-id');
+		if (!newDataSourceUserId) {
+			interaction.reply('New data source user ID must be provided');
+			return;
+		}
 
 		if (!dbUser) {
 			interaction.reply('User does not exist!');
@@ -141,6 +149,7 @@ export const changeUserDataSourceCommand: Command = {
 						},
 						data: {
 							dataSourceCode: newDataSourceCode,
+							dataSourceUserId: newDataSourceUserId,
 							isFirstLookup: true
 						}
 					}),
