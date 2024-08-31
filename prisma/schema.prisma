@@ -11,13 +11,14 @@ datasource db {
 }
 
 model User {
-  id                 String  @id @default(uuid())
-  userId             String
-  guildId            String
-  storygraphUsername String
-  isUserFriends      Boolean
-  books              Book[]
-  isFirstLookup      Boolean
+  id               String  @id @default(uuid())
+  userId           String
+  guildId          String
+  dataSourceCode   String
+  dataSourceUserId String
+  isUserFriends    Boolean
+  books            Book[]
+  isFirstLookup    Boolean
 
   creationDate DateTime @default(now())
   updatedDate  DateTime @updatedAt
