@@ -1,5 +1,6 @@
 import { ChatInputCommandInteraction, REST, Routes, SlashCommandBuilder } from 'discord.js';
 import { getMentionUserText } from '../batch/scraper';
+import { DataSourceCodeOptions } from '../models/DataSourceCode';
 import { prisma } from '../services/prisma';
 import { Command } from './command.model';
 
@@ -24,10 +25,20 @@ export const addUserCommand: Command = {
 	name: 'adduser',
 	builder: new SlashCommandBuilder()
 		.setName('adduser')
-		.setDescription('Add a user by providing their username and storygraph url')
+		.setDescription('Add a user by providing their Discord user, what website they use, and provide their ID')
 		.addMentionableOption(option => option.setName('user').setDescription('User to associate').setRequired(true))
 		.addStringOption(option =>
-			option.setName('storygraph-username').setDescription('Username on Storygraph').setRequired(true)
+			option
+				.setName('data-source')
+				.setDescription('Choose what site user uses')
+				.addChoices(DataSourceCodeOptions)
+				.setRequired(true)
+		)
+		.addStringOption(option =>
+			option
+				.setName('data-source-user-id')
+				.setDescription('Username on Storygraph or Goodreads')
+				.setRequired(true)
 		),
 	handler: async (interaction: ChatInputCommandInteraction) => {
 		const userId = interaction.options.get('user')?.value as string;
@@ -42,7 +53,8 @@ export const addUserCommand: Command = {
 				data: {
 					userId: userId,
 					guildId: interaction.guild!.id,
-					storygraphUsername: interaction.options.get('storygraph-username')?.value as string,
+					dataSourceUserId: interaction.options.get('data-source-user-id')?.value as string,
+					dataSourceCode: interaction.options.get('data-source')?.value as string,
 					isFirstLookup: true,
 					isUserFriends: false
 				}
@@ -86,6 +98,65 @@ export const removeUserCommand: Command = {
 	}
 };
 
+export const changeUserDataSourceCommand: Command = {
+	name: 'changeuserdatasource',
+	builder: new SlashCommandBuilder()
+		.setName('changeuserdatasource')
+		.setDescription('Change users data source, either Storygraph or Goodreads')
+		.addMentionableOption(option => option.setName('user').setDescription('User to change').setRequired(true))
+		.addStringOption(option =>
+			option
+				.setName('data-source')
+				.setDescription('Choose what site user uses')
+				.addChoices(DataSourceCodeOptions)
+				.setRequired(true)
+		),
+	handler: async (interaction: ChatInputCommandInteraction) => {
+		const user = interaction.options.getUser('user');
+		if (user === null) {
+			interaction.reply('User must be supplied');
+			return;
+		}
+		const newDataSourceCode = interaction.options.getString('data-source');
+		if (newDataSourceCode === null) {
+			interaction.reply('Data source must be supplied');
+			return;
+		}
+		const dbUser = await prisma.user.findFirst({
+			where: {
+				userId: user.id
+			}
+		});
+
+		if (!dbUser) {
+			interaction.reply('User does not exist!');
+		} else {
+			if (dbUser.dataSourceCode === newDataSourceCode) {
+				interaction.reply('User is already using that data source!');
+			} else {
+				await prisma.$transaction([
+					prisma.user.update({
+						where: {
+							id: dbUser.id
+						},
+						data: {
+							dataSourceCode: newDataSourceCode,
+							isFirstLookup: true
+						}
+					}),
+					prisma.book.deleteMany({
+						where: {
+							userId: dbUser.id
+						}
+					})
+				]);
+
+				interaction.reply(`User has been updated to use ${dbUser.dataSourceCode}`);
+			}
+		}
+	}
+};
+
 export const resetAllUsersCommand: Command = {
 	name: 'resetusers',
 	builder: new SlashCommandBuilder()
@@ -121,7 +192,7 @@ export const listUsersAndBooks: Command = {
 					userId: user.id
 				}
 			});
-			let msg = `${user.storygraphUsername}: \n`;
+			let msg = `${user.dataSourceUserId} - ${user.dataSourceCode}: \n`;
 			books.forEach(book => (msg += `\t${book.title}\n`));
 			fullMessage += msg;
 		}
@@ -130,4 +201,10 @@ export const listUsersAndBooks: Command = {
 	}
 };
 
-export const COMMANDS: Command[] = [addUserCommand, removeUserCommand, resetAllUsersCommand, listUsersAndBooks];
+export const COMMANDS: Command[] = [
+	addUserCommand,
+	removeUserCommand,
+	resetAllUsersCommand,
+	changeUserDataSourceCommand,
+	listUsersAndBooks
+];

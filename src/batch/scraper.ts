@@ -107,9 +107,9 @@ async function publishFinishedBooks(finishedBooks: Book[], client: Client, user:
 }
 
 function handleError(user: User, e: unknown, client: Client) {
-	console.error(`Error scraping finished books for user ${user.storygraphUsername}`);
+	console.error(`Error scraping finished books for user ${user.dataSourceUserId}`);
 	console.error(`Error: ${e}`);
-	const message = `${getCurrentDateTime()} Error fetching finished books for user ${user.storygraphUsername}\n
+	const message = `${getCurrentDateTime()} Error fetching finished books for user ${user.dataSourceUserId}\n
 				\`\`\`${JSON.stringify(e)}\`\`\``;
 	sendAdminMessage(message, client);
 }
@@ -121,8 +121,8 @@ function sendAdminMessage(message: string, client: Client) {
 async function scrapePageBooks(url: string, user: User, page: Page) {
 	const scrapedBooks: SimpleBook[] = [];
 
-	console.log(`Starting scrape for user ${user.storygraphUsername}`);
-	await page.goto(`${url}/${user.storygraphUsername}`);
+	console.log(`Starting scrape for user ${user.dataSourceUserId}`);
+	await page.goto(`${url}/${user.dataSourceUserId}`);
 	console.log(`Page navigated to url: ${page.url()}`);
 	await page.waitForSelector('main');
 	if (!(await page.$('.read-books-panes'))) {
@@ -146,7 +146,7 @@ async function scrapePageBooks(url: string, user: User, page: Page) {
 		});
 	}
 
-	console.log(`Finished scraping books for user ${user.storygraphUsername}`);
+	console.log(`Finished scraping books for user ${user.dataSourceUserId}`);
 
 	return scrapedBooks;
 }
