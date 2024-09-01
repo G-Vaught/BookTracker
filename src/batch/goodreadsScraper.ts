@@ -17,7 +17,7 @@ export async function handleUser(user: UserWithBook, client: Client) {
 	const userDbBooks = user.books;
 
 	//scrape current books
-	let scrapedCurrentBooks = null;
+	let scrapedCurrentBooks: SimpleBook[] = [];
 	try {
 		scrapedCurrentBooks = await scrapeCurrentBooks(user);
 	} catch (e) {
@@ -26,7 +26,7 @@ export async function handleUser(user: UserWithBook, client: Client) {
 	}
 
 	//scrape finished books
-	let scrapedFinishedBooks = null;
+	let scrapedFinishedBooks: SimpleBook[] = [];
 	try {
 		scrapedFinishedBooks = await scrapeFinishedBooks(user);
 	} catch (e) {

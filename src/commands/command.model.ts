@@ -7,7 +7,10 @@ import {
 
 export type Command = {
 	name: string;
-	builder: SlashCommandBuilder | SlashCommandOptionsOnlyBuilder;
+	builder:
+		| SlashCommandBuilder
+		| SlashCommandOptionsOnlyBuilder
+		| Omit<SlashCommandBuilder, 'addSubcommand' | 'addSubcommandGroup'>;
 	handler: (interaction: ChatInputCommandInteraction) => void;
 };
 

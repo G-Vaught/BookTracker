@@ -31,7 +31,7 @@ export const addUserCommand: Command = {
 			option
 				.setName('data-source')
 				.setDescription('Choose what site user uses')
-				.addChoices(DataSourceCodeOptions)
+				.addChoices(...DataSourceCodeOptions)
 				.setRequired(true)
 		)
 		.addStringOption(option =>
@@ -108,7 +108,7 @@ export const changeUserDataSourceCommand: Command = {
 			option
 				.setName('data-source')
 				.setDescription('Choose what site user uses')
-				.addChoices(DataSourceCodeOptions)
+				.addChoices(...DataSourceCodeOptions)
 				.setRequired(true)
 		)
 		.addStringOption(option =>
