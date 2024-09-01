@@ -1,8 +1,13 @@
-import { ApplicationCommandOptionType, ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import {
+	ApplicationCommandOptionType,
+	ChatInputCommandInteraction,
+	SlashCommandBuilder,
+	SlashCommandOptionsOnlyBuilder
+} from 'discord.js';
 
 export type Command = {
 	name: string;
-	builder: Omit<SlashCommandBuilder, 'addSubcommand' | 'addSubcommandGroup'>;
+	builder: SlashCommandBuilder | SlashCommandOptionsOnlyBuilder;
 	handler: (interaction: ChatInputCommandInteraction) => void;
 };
 

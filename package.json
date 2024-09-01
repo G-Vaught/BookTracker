@@ -1,6 +1,6 @@
 {
 	"name": "booktracker",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "",
 	"main": "src/main.ts",
 	"scripts": {
@@ -14,6 +14,8 @@
 	"license": "ISC",
 	"dependencies": {
 		"@prisma/client": "^5.10.2",
+		"@types/cheerio": "^0.22.35",
+		"cheerio": "^1.0.0",
 		"croner": "^8.1.1",
 		"discord.js": "^14.14.1",
 		"dotenv": "^16.4.4",
