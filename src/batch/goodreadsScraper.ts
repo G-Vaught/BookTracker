@@ -17,6 +17,7 @@ export async function handleUser(user: UserWithBook, client: Client) {
 	const userDbBooks = user.books;
 
 	//scrape current books
+	console.log(`Starting scraping books for user ${user.dataSourceUserId}`);
 	let scrapedCurrentBooks: SimpleBook[] = [];
 	try {
 		scrapedCurrentBooks = await scrapeCurrentBooks(user);
@@ -60,6 +61,8 @@ export async function handleUser(user: UserWithBook, client: Client) {
 			}
 		});
 	}
+
+	console.log(`Finished scraping books for user ${user.dataSourceUserId}`);
 }
 
 async function scrapeCurrentBooks(user: UserWithBook) {

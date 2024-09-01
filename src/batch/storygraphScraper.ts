@@ -69,7 +69,7 @@ async function handleFinishedBooks(finishedBooks: Book[], client: Client, user: 
 async function scrapePageBooks(url: string, user: User, page: Page) {
 	const scrapedBooks: SimpleBook[] = [];
 
-	console.log(`Starting scrape for user ${user.dataSourceUserId}`);
+	console.log(`Starting scraping books for user ${user.dataSourceUserId}`);
 	await page.goto(`${url}/${user.dataSourceUserId}`);
 	console.log(`Page navigated to url: ${page.url()}`);
 	await page.waitForSelector('main');
