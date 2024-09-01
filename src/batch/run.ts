@@ -4,7 +4,7 @@ import { scrapeBooks } from './scraper';
 
 export function runBatch(client: Client) {
 	const job = new Cron(
-		'*/5 * * * *', //Every 5 minutes
+		'*/15 * * * *', //Every 15 minutes
 		{
 			timezone: 'America/Chicago'
 		},

@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio';
 import { Client } from 'discord.js';
 import { UserWithBook } from '../models/UserWithBooks';
 import { prisma } from '../services/prisma';
-import { SimpleBook } from './scraper';
+import { handleError, publishFinishedBooks, publishStartedBooks, SimpleBook } from './scraper';
 
 const SHELF_BEGIN_URL = 'https://www.goodreads.com/review/list/';
 const CURRENTLY_READING_SHELF_END = '?shelf=currently-reading';
@@ -11,14 +11,28 @@ const BASE_BOOK_URL = 'https://www.goodreads.com/book/show';
 
 const BOOK_TABLE_EL_ID = '#booksBody';
 
+const BOOK_ID_REGEX = new RegExp('[0-9]+');
+
 export async function handleUser(user: UserWithBook, client: Client) {
 	const userDbBooks = user.books;
 
 	//scrape current books
-	const scrapedCurrentBooks = await scrapeCurrentBooks(user);
+	let scrapedCurrentBooks = null;
+	try {
+		scrapedCurrentBooks = await scrapeCurrentBooks(user);
+	} catch (e) {
+		handleError(user, e, client);
+		return;
+	}
 
 	//scrape finished books
-	const scrapedFinishedBooks = await scrapeFinishedBooks(user);
+	let scrapedFinishedBooks = null;
+	try {
+		scrapedFinishedBooks = await scrapeFinishedBooks(user);
+	} catch (e) {
+		handleError(user, e, client);
+		return;
+	}
 
 	//compare scraped current books to DB books
 	const finishedBooks = userDbBooks.filter(
@@ -26,15 +40,15 @@ export async function handleUser(user: UserWithBook, client: Client) {
 	);
 	const newBooks = scrapedCurrentBooks.filter(scrapedBook => !userDbBooks.map(db => db.id).includes(scrapedBook.id));
 
-	// //if new books, handle
-	// if (newBooks.length > 0) {
-	// 	await publishStartedBooks(newBooks, userDbBooks, user, client, BASE_BOOK_URL);
-	// }
+	//if new books, handle
+	if (newBooks.length > 0) {
+		await publishStartedBooks(newBooks, userDbBooks, user, client, BASE_BOOK_URL);
+	}
 
-	// //if missing books and missing books are on finished list, handle
-	// if (finishedBooks.length > 0) {
-	// 	await publishFinishedBooks(finishedBooks, scrapedFinishedBooks, client, user, BASE_BOOK_URL);
-	// }
+	//if missing books and missing books are on finished list, handle
+	if (finishedBooks.length > 0) {
+		await publishFinishedBooks(finishedBooks, scrapedFinishedBooks, client, user, BASE_BOOK_URL);
+	}
 
 	if (user.isFirstLookup) {
 		await prisma.user.update({
@@ -74,23 +88,24 @@ async function scrapeBookTable(fetchRes: Response): Promise<SimpleBook[]> {
 
 	const bookTableRows = $(`${BOOK_TABLE_EL_ID} > tr`);
 
-	bookTableRows.each((i, bookTableRow) => {
-		const titleEl = $('.title > .value > a', bookTableRow);
-		const title = $(titleEl).attr('title')!.toString().trim();
-		const idEl = $('.title > .value > a', bookTableRow);
-		const href = $(idEl).attr('href')!.toString().trim();
-		const id = new RegExp('[0-9]+').exec(href);
-		if (id === null) {
-			console.error('Error parsing href for ID');
-			return;
-		}
-		const book: SimpleBook = {
-			title,
-			id: id[0]
-		};
-		console.log('book', book);
-		// scrapedBooks.push(book);
-	});
+	if (bookTableRows) {
+		bookTableRows.each((i, bookTableRow) => {
+			const titleEl = $('.title > .value > a', bookTableRow);
+			const title = $(titleEl).attr('title')!.toString().trim();
+			const idEl = $('.title > .value > a', bookTableRow);
+			const href = $(idEl).attr('href')!.toString().trim();
+			const id = BOOK_ID_REGEX.exec(href);
+			if (id === null) {
+				console.error('Error parsing href for ID');
+				return;
+			}
+			const book: SimpleBook = {
+				title,
+				id: id[0]
+			};
+			scrapedBooks.push(book);
+		});
+	}
 	return scrapedBooks;
 }
 
