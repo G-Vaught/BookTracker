@@ -23,7 +23,6 @@ export async function scrapeBooks(client: Client) {
 	});
 
 	const hasStorygraphUsers = users.some(user => user.dataSourceCode === DataSourceCode.STORYGRAPH);
-	const hasGoodreadsUsers = users.some(user => user.dataSourceCode === DataSourceCode.GOODREADS);
 
 	if (hasStorygraphUsers) {
 		try {
