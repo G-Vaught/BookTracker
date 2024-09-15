@@ -1,9 +1,9 @@
-import { Book, User } from '@prisma/client';
+import { User } from '@prisma/client';
 import { Client } from 'discord.js';
 import { Page } from 'puppeteer';
 import { UserWithBook } from '../models/UserWithBooks';
 import { prisma } from '../services/prisma';
-import { SimpleBook, handleError, publishFinishedBooks, publishStartedBooks } from './scraper';
+import { SimpleBook, doScrapedBooksMatch, handleError, publishFinishedBooks, publishStartedBooks } from './scraper';
 
 const BASE_STORYGRAPH_URL = 'https://app.thestorygraph.com';
 const SIGNIN_URL = `${BASE_STORYGRAPH_URL}/users/sign_in`;
@@ -29,16 +29,48 @@ export async function handleUser(user: UserWithBook, client: Client, page: Page)
 	let books: SimpleBook[];
 	try {
 		books = await scrapePageBooks(BASE_CURRENT_READING_URL, user, page);
+		const secondScrape = await scrapePageBooks(BASE_CURRENT_READING_URL, user, page);
+		if (
+			!doScrapedBooksMatch(
+				books.map(book => book.id),
+				secondScrape.map(book => book.id)
+			)
+		) {
+			console.error('Current books scrape returned different results, skipping user');
+			return;
+		}
 	} catch (e) {
 		handleError(user, e, client);
 		return;
 	}
+
+	let scrapedFinishedBooks: SimpleBook[];
+	try {
+		scrapedFinishedBooks = await scrapePageBooks(FINISHED_BOOKS_URL, user, page);
+		const secondScrape = await scrapePageBooks(FINISHED_BOOKS_URL, user, page);
+		if (
+			!doScrapedBooksMatch(
+				books.map(book => book.id),
+				secondScrape.map(book => book.id)
+			)
+		) {
+			console.error('Finished books scrape returned different results, skipping user');
+			return;
+		}
+	} catch (e) {
+		handleError(user, e, client);
+		return;
+	}
+
 	const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
 	const newBooks = books.filter(book => !dbBooks.map(db => db.id).includes(book.id));
 
-	await publishStartedBooks(newBooks, dbBooks, user, client, BASE_BOOK_URL);
-
-	await handleFinishedBooks(finishedBooks, client, user, page);
+	if (newBooks.length > 0) {
+		await publishStartedBooks(newBooks, dbBooks, user, client, BASE_BOOK_URL);
+	}
+	if (finishedBooks.length > 0) {
+		await publishFinishedBooks(finishedBooks, scrapedFinishedBooks, client, user, BASE_BOOK_URL);
+	}
 
 	if (user.isFirstLookup) {
 		await prisma.user.update({
@@ -49,20 +81,6 @@ export async function handleUser(user: UserWithBook, client: Client, page: Page)
 				isFirstLookup: false
 			}
 		});
-	}
-}
-
-async function handleFinishedBooks(finishedBooks: Book[], client: Client, user: User, page: Page) {
-	if (finishedBooks.length > 0) {
-		let scrapedFinishedBooks: SimpleBook[] = [];
-		try {
-			scrapedFinishedBooks = await scrapePageBooks(FINISHED_BOOKS_URL, user, page);
-		} catch (e) {
-			handleError(user, e, client);
-			return;
-		}
-
-		await publishFinishedBooks(finishedBooks, scrapedFinishedBooks, client, user, BASE_BOOK_URL);
 	}
 }
 
@@ -80,7 +98,7 @@ async function scrapePageBooks(url: string, user: User, page: Page) {
 
 	const bookPanes = await page.$$('.read-books-panes > div');
 
-	console.log(`Found ${bookPanes.length + 1} book pane(s)`);
+	console.log(`Found ${bookPanes.length} book pane(s)`);
 
 	for (const bookPane of bookPanes) {
 		const bookId = await bookPane.evaluate(el => el.getAttribute('data-book-id'));

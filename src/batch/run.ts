@@ -9,9 +9,9 @@ export function runBatch(client: Client) {
 			timezone: 'America/Chicago'
 		},
 		async () => {
-			console.log('Starting batch at', new Date().toLocaleString());
+			console.log('Starting batch at', new Date().toLocaleString('en-US'));
 			await scrapeBooks(client);
-			console.log('Finished batch at', new Date().toLocaleString());
+			console.log('Finished batch at', new Date().toLocaleString('en-US'));
 		}
 	);
 }

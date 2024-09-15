@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio';
 import { Client } from 'discord.js';
 import { UserWithBook } from '../models/UserWithBooks';
 import { prisma } from '../services/prisma';
-import { handleError, publishFinishedBooks, publishStartedBooks, SimpleBook } from './scraper';
+import { doScrapedBooksMatch, handleError, publishFinishedBooks, publishStartedBooks, SimpleBook } from './scraper';
 
 const SHELF_BEGIN_URL = 'https://www.goodreads.com/review/list/';
 const CURRENTLY_READING_SHELF_END = '?shelf=currently-reading';
@@ -21,6 +21,16 @@ export async function handleUser(user: UserWithBook, client: Client) {
 	let scrapedCurrentBooks: SimpleBook[] = [];
 	try {
 		scrapedCurrentBooks = await scrapeCurrentBooks(user);
+		const secondScrape = await scrapeCurrentBooks(user);
+		if (
+			!doScrapedBooksMatch(
+				scrapedCurrentBooks.map(book => book.id),
+				secondScrape.map(book => book.id)
+			)
+		) {
+			console.error('Current books scrape returned different results, skipping user');
+			return;
+		}
 	} catch (e) {
 		handleError(user, e, client);
 		return;
@@ -30,6 +40,16 @@ export async function handleUser(user: UserWithBook, client: Client) {
 	let scrapedFinishedBooks: SimpleBook[] = [];
 	try {
 		scrapedFinishedBooks = await scrapeFinishedBooks(user);
+		const secondScrape = await scrapeFinishedBooks(user);
+		if (
+			!doScrapedBooksMatch(
+				scrapedFinishedBooks.map(b => b.id),
+				secondScrape.map(b => b.id)
+			)
+		) {
+			console.error('Finished books scrape returned different results, skipping user');
+			return;
+		}
 	} catch (e) {
 		handleError(user, e, client);
 		return;
@@ -76,6 +96,9 @@ async function scrapeCurrentBooks(user: UserWithBook) {
 
 async function scrapeFinishedBooks(user: UserWithBook) {
 	const fetchRes = await fetchFinishedReadingPage(user.dataSourceUserId);
+	if (fetchRes.status !== 200) {
+		throw new Error(`Fetch status returned error: ${fetchRes.status}: ${fetchRes.statusText}`);
+	}
 	const fetchedBooks = await scrapeBookTable(fetchRes);
 	if (fetchedBooks) {
 		return fetchedBooks;
@@ -87,7 +110,16 @@ async function scrapeBookTable(fetchRes: Response): Promise<SimpleBook[]> {
 	const scrapedBooks: SimpleBook[] = [];
 	const currentlyReadingBody = await fetchRes.text();
 
+	if (!currentlyReadingBody) {
+		throw new Error('Response body was empty!');
+	}
+
 	const $ = cheerio.load(currentlyReadingBody);
+
+	const doesTableExist = $('#books')?.length > 0;
+	if (!doesTableExist) {
+		throw new Error('Books table does not exist! Is Goodreads under maintenance?');
+	}
 
 	const bookTableRows = $(`${BOOK_TABLE_EL_ID} > tr`);
 

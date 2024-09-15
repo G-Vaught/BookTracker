@@ -58,24 +58,22 @@ export async function publishStartedBooks(
 	client: Client,
 	baseUrl: string
 ) {
-	if (newBooks.length > 0) {
-		console.log('New Books', newBooks);
-		for (const newBook of newBooks) {
-			const newDbBook = await prisma.book.create({
-				data: {
-					id: newBook.id,
-					userId: user.id,
-					title: newBook.title
-				}
-			});
-
-			//Skip book if title matches current book, likely version change
-			if (!user.isFirstLookup && !currentBooks.some(currentBook => newBook.title === currentBook.title)) {
-				await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(
-					`${getMentionUserText(user.userId)} has started **${newBook.title}**!
-                                    ${baseUrl}/${newDbBook.id}`
-				);
+	console.log('New Books', newBooks);
+	for (const newBook of newBooks) {
+		const newDbBook = await prisma.book.create({
+			data: {
+				id: newBook.id,
+				userId: user.id,
+				title: newBook.title
 			}
+		});
+
+		//Skip book if title matches current book, likely version change
+		if (!user.isFirstLookup && !currentBooks.some(currentBook => newBook.title === currentBook.title)) {
+			await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(
+				`${getMentionUserText(user.userId)} has started **${newBook.title}**!
+                                    ${baseUrl}/${newDbBook.id}`
+			);
 		}
 	}
 }
@@ -124,6 +122,9 @@ function sendAdminMessage(message: string, client: Client) {
 export function getMentionUserText(userId: string) {
 	return `<@${userId}>`;
 }
+
+export const doScrapedBooksMatch = (a: string[], b: string[]) =>
+	a.length === b.length && a.length > 0 ? a.every((el, index) => el === b.at(index)) : true;
 
 export type SimpleBook = {
 	id: string;
