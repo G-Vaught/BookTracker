@@ -83,7 +83,7 @@ export async function scrapeBooks(client: Client) {
 	);
 
 	errorAlertHandler(
-		storygraphErrorCount,
+		goodreadsErrorCount,
 		goodreadsUserCount,
 		client,
 		`The total number of Goodreads users with errors is greater than 80%, total errors: ${goodreadsErrorCount} out of ${goodreadsUserCount} users`
