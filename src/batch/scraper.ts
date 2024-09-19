@@ -68,7 +68,7 @@ export async function scrapeBooks(client: Client) {
 	const goodreadsUserCount = users.filter(user => user.dataSourceCode === DataSourceCode.GOODREADS).length;
 
 	const errorAlertHandler = (errorCount: number, userCount: number, client: Client, message: string) => {
-		if (userCount > 0 && errorCount / userCount >= ERROR_ALERT_THRESHOLD) {
+		if (errorCount > 0 && userCount > 0 && errorCount / userCount >= ERROR_ALERT_THRESHOLD) {
 			sendAdminMessage(message, client);
 		}
 	};
