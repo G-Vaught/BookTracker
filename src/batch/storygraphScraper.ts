@@ -3,7 +3,7 @@ import { Client } from 'discord.js';
 import { Page } from 'puppeteer';
 import { UserWithBook } from '../models/UserWithBooks';
 import { prisma } from '../services/prisma';
-import { SimpleBook, doScrapedBooksMatch, handleError, publishFinishedBooks, publishStartedBooks } from './scraper';
+import { SimpleBook, doScrapedBooksMatch, publishFinishedBooks, publishStartedBooks } from './scraper';
 
 const BASE_STORYGRAPH_URL = 'https://app.thestorygraph.com';
 const SIGNIN_URL = `${BASE_STORYGRAPH_URL}/users/sign_in`;
@@ -40,8 +40,9 @@ export async function handleUser(user: UserWithBook, client: Client, page: Page)
 			return;
 		}
 	} catch (e) {
-		handleError(user, e, client);
-		return;
+		console.error(`Error fetch current books for user ${user.dataSourceUserId}`);
+		console.error(e);
+		throw e;
 	}
 
 	let scrapedFinishedBooks: SimpleBook[];
@@ -58,8 +59,9 @@ export async function handleUser(user: UserWithBook, client: Client, page: Page)
 			return;
 		}
 	} catch (e) {
-		handleError(user, e, client);
-		return;
+		console.error(`Error fetch finished books for user ${user.dataSourceUserId}`);
+		console.error(e);
+		throw e;
 	}
 
 	const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));

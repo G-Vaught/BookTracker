@@ -8,6 +8,8 @@ import { prisma } from '../services/prisma';
 import * as goodreadsScraper from './goodreadsScraper';
 import * as storygraphScraper from './storygraphScraper';
 
+const ERROR_ALERT_THRESHOLD = 0.8;
+
 export async function scrapeBooks(client: Client) {
 	let isStorygraphSignedIn = false;
 
@@ -35,20 +37,53 @@ export async function scrapeBooks(client: Client) {
 		}
 	}
 
-	try {
-		for (const user of users) {
+	let storygraphErrorCount = 0;
+	let goodreadsErrorCount = 0;
+
+	for (const user of users) {
+		try {
 			if (user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
 				await storygraphScraper.handleUser(user, client, page);
 			} else if (user.dataSourceCode === DataSourceCode.GOODREADS) {
 				await goodreadsScraper.handleUser(user, client);
 			}
+		} catch (e) {
+			handleError(user, e, client);
+			if (user.dataSourceCode === DataSourceCode.STORYGRAPH) {
+				storygraphErrorCount++;
+			}
+			if (user.dataSourceCode === DataSourceCode.GOODREADS) {
+				goodreadsErrorCount++;
+			}
 		}
-	} catch (error) {
-		console.log('Error fetching books', error);
-		sendAdminMessage(`Error fetching books:\n ${JSON.stringify(error)}`, client);
 	}
 
 	await browser.close();
+
+	const storygraphUserCount = users.filter(user => user.dataSourceCode === DataSourceCode.STORYGRAPH).length;
+	const goodreadsUserCount = users.filter(user => user.dataSourceCode === DataSourceCode.GOODREADS).length;
+
+	const errorAlertHandler = (errorCount: number, userCount: number, client: Client, message: string) => {
+		if (userCount > 0 && errorCount / userCount >= ERROR_ALERT_THRESHOLD) {
+			sendAdminMessage(message, client);
+		}
+	};
+
+	console.log('Total number of errors for this run:', storygraphErrorCount + goodreadsErrorCount);
+
+	errorAlertHandler(
+		storygraphErrorCount,
+		storygraphUserCount,
+		client,
+		`The total number of Storygraph users with errors is greater than 80%, total errors: ${storygraphErrorCount} out of ${storygraphUserCount} users`
+	);
+
+	errorAlertHandler(
+		storygraphErrorCount,
+		goodreadsUserCount,
+		client,
+		`The total number of Goodreads users with errors is greater than 80%, total errors: ${goodreadsErrorCount} out of ${goodreadsUserCount} users`
+	);
 }
 
 export async function publishStartedBooks(

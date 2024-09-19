@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio';
 import { Client } from 'discord.js';
 import { UserWithBook } from '../models/UserWithBooks';
 import { prisma } from '../services/prisma';
-import { doScrapedBooksMatch, handleError, publishFinishedBooks, publishStartedBooks, SimpleBook } from './scraper';
+import { doScrapedBooksMatch, publishFinishedBooks, publishStartedBooks, SimpleBook } from './scraper';
 
 const SHELF_BEGIN_URL = 'https://www.goodreads.com/review/list/';
 const CURRENTLY_READING_SHELF_END = '?shelf=currently-reading';
@@ -32,8 +32,9 @@ export async function handleUser(user: UserWithBook, client: Client) {
 			return;
 		}
 	} catch (e) {
-		handleError(user, e, client);
-		return;
+		console.error(`Error fetch current books for user ${user.dataSourceUserId}`);
+		console.error(e);
+		throw e;
 	}
 
 	//scrape finished books
@@ -51,8 +52,9 @@ export async function handleUser(user: UserWithBook, client: Client) {
 			return;
 		}
 	} catch (e) {
-		handleError(user, e, client);
-		return;
+		console.error(`Error fetch finished books for user ${user.dataSourceUserId}`);
+		console.error(e);
+		throw e;
 	}
 
 	//compare scraped current books to DB books
