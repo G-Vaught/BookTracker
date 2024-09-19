@@ -49,7 +49,7 @@ export async function scrapeBooks(client: Client) {
 				await goodreadsScraper.handleUser(user, client);
 			}
 		} catch (e: any) {
-			if (e.name !== 'TimeoutError') {
+			if (e.name !== 'TimeoutError' && Object.keys(e).length > 0) {
 				handleError(user, e, client);
 			}
 			if (user.dataSourceCode === DataSourceCode.STORYGRAPH) {
