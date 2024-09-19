@@ -41,6 +41,7 @@ export async function scrapeBooks(client: Client) {
 	let goodreadsErrorCount = 0;
 
 	for (const user of users) {
+		console.log(`Starting scraping books for user ${user.dataSourceUserId}`);
 		try {
 			if (user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
 				await storygraphScraper.handleUser(user, client, page);
@@ -56,6 +57,7 @@ export async function scrapeBooks(client: Client) {
 				goodreadsErrorCount++;
 			}
 		}
+		console.log(`Finished scraping books for user ${user.dataSourceUserId}`);
 	}
 
 	await browser.close();

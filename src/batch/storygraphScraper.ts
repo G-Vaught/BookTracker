@@ -89,7 +89,6 @@ export async function handleUser(user: UserWithBook, client: Client, page: Page)
 async function scrapePageBooks(url: string, user: User, page: Page) {
 	const scrapedBooks: SimpleBook[] = [];
 
-	console.log(`Starting scraping books for user ${user.dataSourceUserId}`);
 	await page.goto(`${url}/${user.dataSourceUserId}`);
 	console.log(`Page navigated to url: ${page.url()}`);
 	await page.waitForSelector('main');
@@ -113,8 +112,6 @@ async function scrapePageBooks(url: string, user: User, page: Page) {
 			title: bookTitle
 		});
 	}
-
-	console.log(`Finished scraping books for user ${user.dataSourceUserId}`);
 
 	return scrapedBooks;
 }
