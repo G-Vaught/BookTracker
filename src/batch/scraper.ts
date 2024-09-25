@@ -6,6 +6,7 @@ import { UserWithBook as UserWithBooks } from '../models/UserWithBooks';
 import { getCurrentDateTime } from '../services/log.service';
 import { prisma } from '../services/prisma';
 import * as goodreadsScraper from './goodreadsScraper';
+import { restartPm2 } from './linuxHandler';
 import * as storygraphScraper from './storygraphScraper';
 
 const ERROR_ALERT_THRESHOLD = 0.8;
@@ -88,6 +89,20 @@ export async function scrapeBooks(client: Client) {
 		client,
 		`The total number of Goodreads users with errors is greater than 80%, total errors: ${goodreadsErrorCount} out of ${goodreadsUserCount} users`
 	);
+
+	if (storygraphErrorCount === storygraphUserCount && storygraphUserCount >= 5) {
+		console.log('All Storygraph users have errors, manually restarting Booktracker');
+		sendAdminMessage('All Storygraph users have errors, manually restarting Booktracker', client);
+		restartPm2();
+		return;
+	}
+
+	if (goodreadsErrorCount === goodreadsUserCount && goodreadsUserCount >= 5) {
+		console.log('All Goodreads users have errors, manually restarting Booktracker');
+		sendAdminMessage('All Goodreads users have errors, manually restarting Booktracker', client);
+		restartPm2();
+		return;
+	}
 }
 
 export async function publishStartedBooks(
