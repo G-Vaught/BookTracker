@@ -34,7 +34,7 @@ export async function scrapeBooks(client: Client) {
 		} catch (e) {
 			console.log('Error occurred when signing in to Storygraph.');
 			console.log(e);
-			sendAdminMessage(`Error occurred when signing in to Storygraph:\n ${JSON.stringify(e)}`, client);
+			await sendAdminMessage(`Error occurred when signing in to Storygraph:\n ${JSON.stringify(e)}`, client);
 		}
 	}
 
@@ -68,22 +68,22 @@ export async function scrapeBooks(client: Client) {
 	const storygraphUserCount = users.filter(user => user.dataSourceCode === DataSourceCode.STORYGRAPH).length;
 	const goodreadsUserCount = users.filter(user => user.dataSourceCode === DataSourceCode.GOODREADS).length;
 
-	const errorAlertHandler = (errorCount: number, userCount: number, client: Client, message: string) => {
+	const errorAlertHandler = async (errorCount: number, userCount: number, client: Client, message: string) => {
 		if (errorCount > 0 && userCount > 0 && errorCount / userCount >= ERROR_ALERT_THRESHOLD) {
-			sendAdminMessage(message, client);
+			await sendAdminMessage(message, client);
 		}
 	};
 
 	console.log('Total number of errors for this run:', storygraphErrorCount + goodreadsErrorCount);
 
-	errorAlertHandler(
+	await errorAlertHandler(
 		storygraphErrorCount,
 		storygraphUserCount,
 		client,
 		`The total number of Storygraph users with errors is greater than 80%, total errors: ${storygraphErrorCount} out of ${storygraphUserCount} users`
 	);
 
-	errorAlertHandler(
+	await errorAlertHandler(
 		goodreadsErrorCount,
 		goodreadsUserCount,
 		client,
@@ -92,14 +92,14 @@ export async function scrapeBooks(client: Client) {
 
 	if (storygraphErrorCount === storygraphUserCount && storygraphUserCount >= 5) {
 		console.log('All Storygraph users have errors, manually restarting Booktracker');
-		sendAdminMessage('All Storygraph users have errors, manually restarting Booktracker', client);
+		await sendAdminMessage('All Storygraph users have errors, manually restarting Booktracker', client);
 		restartPm2();
 		return;
 	}
 
 	if (goodreadsErrorCount === goodreadsUserCount && goodreadsUserCount >= 5) {
 		console.log('All Goodreads users have errors, manually restarting Booktracker');
-		sendAdminMessage('All Goodreads users have errors, manually restarting Booktracker', client);
+		await sendAdminMessage('All Goodreads users have errors, manually restarting Booktracker', client);
 		restartPm2();
 		return;
 	}
@@ -169,8 +169,8 @@ export function handleError(user: User | UserWithBooks, e: unknown, client: Clie
 	sendAdminMessage(message, client);
 }
 
-function sendAdminMessage(message: string, client: Client) {
-	client.users.send(process.env.EKRON_USER_ID!, message);
+async function sendAdminMessage(message: string, client: Client) {
+	await client.users.send(process.env.EKRON_USER_ID!, message);
 }
 
 export function getMentionUserText(userId: string) {
