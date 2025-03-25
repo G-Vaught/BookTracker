@@ -26,7 +26,7 @@ export async function signin(page: Page) {
 
 export async function handleUser(user: UserWithBook, client: Client, page: Page) {
 	const dbBooks = user.books;
-	let books: SimpleBook[];
+	let books: SimpleBook[] = [];
 	try {
 		books = await scrapePageBooks(BASE_CURRENT_READING_URL, user, page);
 		const secondScrape = await scrapePageBooks(BASE_CURRENT_READING_URL, user, page);
@@ -67,11 +67,16 @@ export async function handleUser(user: UserWithBook, client: Client, page: Page)
 	const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
 	const newBooks = books.filter(book => !dbBooks.map(db => db.id).includes(book.id));
 
-	if (newBooks.length > 0) {
-		await publishStartedBooks(newBooks, dbBooks, user, client, BASE_BOOK_URL);
+	let handlePublishStartedBooks = async () => {
+		if (newBooks.length > 0) {
+			await publishStartedBooks(newBooks, dbBooks, user, user.isFirstLookup, client, BASE_BOOK_URL);
+		}
 	}
-	if (finishedBooks.length > 0) {
-		await publishFinishedBooks(finishedBooks, scrapedFinishedBooks, client, user, BASE_BOOK_URL);
+
+	let handlePublishFinishedBooks = async () => {
+		if (finishedBooks.length > 0) {
+			await publishFinishedBooks(finishedBooks, scrapedFinishedBooks, client, user, BASE_BOOK_URL)
+		}
 	}
 
 	if (user.isFirstLookup) {
@@ -84,6 +89,12 @@ export async function handleUser(user: UserWithBook, client: Client, page: Page)
 			}
 		});
 	}
+
+	return {
+		booksCount: books.length,
+		handlePublishStartedBooks,
+		handlePublishFinishedBooks
+	};
 }
 
 async function scrapePageBooks(url: string, user: User, page: Page) {

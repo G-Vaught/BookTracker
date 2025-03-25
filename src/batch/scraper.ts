@@ -41,11 +41,13 @@ export async function scrapeBooks(client: Client) {
 	let storygraphErrorCount = 0;
 	let goodreadsErrorCount = 0;
 
+	let userActions = [];
+
 	for (const user of users) {
 		console.log(`Starting scraping books for user ${user.dataSourceUserId}`);
 		try {
 			if (user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
-				await storygraphScraper.handleUser(user, client, page);
+				userActions.push(await storygraphScraper.handleUser(user, client, page));
 			} else if (user.dataSourceCode === DataSourceCode.GOODREADS) {
 				await goodreadsScraper.handleUser(user, client);
 			}
@@ -61,6 +63,15 @@ export async function scrapeBooks(client: Client) {
 			}
 		}
 		console.log(`Finished scraping books for user ${user.dataSourceUserId}`);
+	}
+
+	if (userActions.reduce((totalBooks, userAction) => totalBooks + userAction!.booksCount, 0) === 0) {
+		await sendAdminMessage('Error: No user scraped books - skipping', client);
+	} else {
+		for (const action of userActions) {
+			await action?.handlePublishFinishedBooks();
+			await action?.handlePublishStartedBooks();
+		}
 	}
 
 	await browser.close();
@@ -109,6 +120,7 @@ export async function publishStartedBooks(
 	newBooks: SimpleBook[],
 	currentBooks: Book[],
 	user: User,
+	isNewUser: boolean,
 	client: Client,
 	baseUrl: string
 ) {
@@ -123,7 +135,7 @@ export async function publishStartedBooks(
 		});
 
 		//Skip book if title matches current book, likely version change
-		if (!user.isFirstLookup && !currentBooks.some(currentBook => newBook.title === currentBook.title)) {
+		if (!isNewUser && !currentBooks.some(currentBook => newBook.title === currentBook.title)) {
 			await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(
 				`${getMentionUserText(user.userId)} has started **${newBook.title}**!
                                     ${baseUrl}/${newDbBook.id}`
