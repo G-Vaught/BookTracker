@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio';
 import { Client } from 'discord.js';
 import { UserWithBook } from '../models/UserWithBooks';
 import { prisma } from '../services/prisma';
-import { doScrapedBooksMatch, publishFinishedBooks, publishStartedBooks, SimpleBook } from './scraper';
+import { doScrapedBooksMatch, PublishAction, publishFinishedBooks, publishStartedBooks, SimpleBook } from './scraper';
 
 const SHELF_BEGIN_URL = 'https://www.goodreads.com/review/list/';
 const CURRENTLY_READING_SHELF_END = '?shelf=currently-reading';
@@ -13,7 +13,7 @@ const BOOK_TABLE_EL_ID = '#booksBody';
 
 const BOOK_ID_REGEX = new RegExp('[0-9]+');
 
-export async function handleUser(user: UserWithBook, client: Client) {
+export async function handleUser(user: UserWithBook, client: Client): Promise<PublishAction | undefined> {
 	const userDbBooks = user.books;
 
 	//scrape current books
@@ -62,14 +62,18 @@ export async function handleUser(user: UserWithBook, client: Client) {
 	);
 	const newBooks = scrapedCurrentBooks.filter(scrapedBook => !userDbBooks.map(db => db.id).includes(scrapedBook.id));
 
-	//if new books, handle
-	if (newBooks.length > 0) {
-		await publishStartedBooks(newBooks, userDbBooks, user, client, BASE_BOOK_URL);
+	const handlePublishNewBooks = async () => {
+		//if new books, handle
+		if (newBooks.length > 0) {
+			await publishStartedBooks(newBooks, userDbBooks, user, user.isFirstLookup, client, BASE_BOOK_URL);
+		}
 	}
 
-	//if missing books and missing books are on finished list, handle
-	if (finishedBooks.length > 0) {
-		await publishFinishedBooks(finishedBooks, scrapedFinishedBooks, client, user, BASE_BOOK_URL);
+	const handlePublishFinishedBooks = async () => {
+		//if missing books and missing books are on finished list, handle
+		if (finishedBooks.length > 0) {
+			await publishFinishedBooks(finishedBooks, scrapedFinishedBooks, client, user, BASE_BOOK_URL);
+		}
 	}
 
 	if (user.isFirstLookup) {
@@ -81,6 +85,12 @@ export async function handleUser(user: UserWithBook, client: Client) {
 				isFirstLookup: false
 			}
 		});
+	}
+
+	return {
+		booksCount: scrapedCurrentBooks.length,
+		handlePublishFinishedBooks,
+		handlePublishStartedBooks: handlePublishNewBooks
 	}
 }
 

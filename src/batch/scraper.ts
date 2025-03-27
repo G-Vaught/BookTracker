@@ -11,6 +11,12 @@ import * as storygraphScraper from './storygraphScraper';
 
 const ERROR_ALERT_THRESHOLD = 0.8;
 
+export type PublishAction = {
+	booksCount: number,
+	handlePublishStartedBooks: () => Promise<void>,
+	handlePublishFinishedBooks: () => Promise<void>,
+}
+
 export async function scrapeBooks(client: Client) {
 	let isStorygraphSignedIn = false;
 
@@ -41,15 +47,15 @@ export async function scrapeBooks(client: Client) {
 	let storygraphErrorCount = 0;
 	let goodreadsErrorCount = 0;
 
-	let userActions = [];
+	let publishActions: (PublishAction | undefined)[] = [];
 
 	for (const user of users) {
 		console.log(`Starting scraping books for user ${user.dataSourceUserId}`);
 		try {
 			if (user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
-				userActions.push(await storygraphScraper.handleUser(user, client, page));
+				publishActions.push(await storygraphScraper.handleUser(user, client, page));
 			} else if (user.dataSourceCode === DataSourceCode.GOODREADS) {
-				await goodreadsScraper.handleUser(user, client);
+				publishActions.push(await goodreadsScraper.handleUser(user, client));
 			}
 		} catch (e: any) {
 			if (e.name !== 'TimeoutError' && Object.keys(e).length > 0) {
@@ -65,10 +71,10 @@ export async function scrapeBooks(client: Client) {
 		console.log(`Finished scraping books for user ${user.dataSourceUserId}`);
 	}
 
-	if (userActions.reduce((totalBooks, userAction) => totalBooks + userAction!.booksCount, 0) === 0) {
+	if (publishActions.reduce((totalBooks, userAction) => userAction ? totalBooks + userAction.booksCount : 0, 0)  === 0) {
 		await sendAdminMessage('Error: No user scraped books - skipping', client);
 	} else {
-		for (const action of userActions) {
+		for (const action of publishActions) {
 			await action?.handlePublishFinishedBooks();
 			await action?.handlePublishStartedBooks();
 		}

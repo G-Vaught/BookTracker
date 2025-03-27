@@ -3,7 +3,7 @@ import { Client } from 'discord.js';
 import { Page } from 'puppeteer';
 import { UserWithBook } from '../models/UserWithBooks';
 import { prisma } from '../services/prisma';
-import { SimpleBook, doScrapedBooksMatch, publishFinishedBooks, publishStartedBooks } from './scraper';
+import { PublishAction, SimpleBook, doScrapedBooksMatch, publishFinishedBooks, publishStartedBooks } from './scraper';
 
 const BASE_STORYGRAPH_URL = 'https://app.thestorygraph.com';
 const SIGNIN_URL = `${BASE_STORYGRAPH_URL}/users/sign_in`;
@@ -24,7 +24,7 @@ export async function signin(page: Page) {
 	await Promise.all([page.click(signin_submit_id), page.waitForNavigation()]);
 }
 
-export async function handleUser(user: UserWithBook, client: Client, page: Page) {
+export async function handleUser(user: UserWithBook, client: Client, page: Page): Promise<PublishAction | undefined> {
 	const dbBooks = user.books;
 	let books: SimpleBook[] = [];
 	try {

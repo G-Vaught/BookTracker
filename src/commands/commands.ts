@@ -210,10 +210,49 @@ export const listUsersAndBooks: Command = {
 	}
 };
 
+export const resetUser: Command = {
+	name: 'resetuser',
+	builder: new SlashCommandBuilder().setName('resetuser').setDescription('Remove a user\'s current reading list, WITHOUT resetting isFirstLookup')
+		.addMentionableOption(option => option.setName('user').setDescription('User to reset').setRequired(true)),
+	handler: async (interaction: ChatInputCommandInteraction) => {
+		if (interaction.user.id !== process.env.EKRON_USER_ID) {
+			interaction.reply('You do not have permissions to use this command');
+			return;
+		}
+
+		const user = interaction.options.getUser('user');
+		if (user === null) {
+			interaction.reply('User must be supplied');
+			return;
+		}
+
+		const dbUser = await prisma.user.findFirst({
+			where: {
+				userId: user.id
+			}
+		});
+
+		if (!dbUser) {
+			return;
+		}
+
+		await prisma.book.deleteMany({
+			where: {
+				userId: dbUser.id
+			}
+		});
+
+		console.log(`Reset ${user.username}\'s books`);
+
+		interaction.reply(`Reset ${user.username}\'s books`);
+	}
+}
+
 export const COMMANDS: Command[] = [
 	addUserCommand,
 	removeUserCommand,
 	resetAllUsersCommand,
 	changeUserDataSourceCommand,
-	listUsersAndBooks
+	listUsersAndBooks,
+	resetUser
 ];
