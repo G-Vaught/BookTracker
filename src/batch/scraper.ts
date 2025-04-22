@@ -34,7 +34,7 @@ export async function scrapeBooks(client: Client) {
 
 	const hasStorygraphUsers = users.some(user => user.dataSourceCode === DataSourceCode.STORYGRAPH);
 
-	if (hasStorygraphUsers) {
+	if (isScraperEnabled(DataSourceCode.STORYGRAPH) && hasStorygraphUsers) {
 		try {
 			await storygraphScraper.signin(page);
 			isStorygraphSignedIn = true;
