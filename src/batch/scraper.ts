@@ -8,6 +8,7 @@ import { prisma } from '../services/prisma';
 import * as goodreadsScraper from './goodreadsScraper';
 import { restartPm2 } from './linuxHandler';
 import * as storygraphScraper from './storygraphScraper';
+import { isScraperEnabled } from '../services/configService';
 
 const ERROR_ALERT_THRESHOLD = 0.8;
 
@@ -53,9 +54,9 @@ export async function scrapeBooks(client: Client) {
 	for (const user of users) {
 		console.log(`Starting scraping books for user ${user.dataSourceUserId}`);
 		try {
-			if (user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
+			if (isScraperEnabled(DataSourceCode.STORYGRAPH) && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
 				storygraphActions.push(await storygraphScraper.handleUser(user, client, page));
-			} else if (user.dataSourceCode === DataSourceCode.GOODREADS) {
+			} else if (isScraperEnabled(DataSourceCode.GOODREADS) && user.dataSourceCode === DataSourceCode.GOODREADS) {
 				goodreadsActions.push(await goodreadsScraper.handleUser(user, client));
 			}
 		} catch (e: any) {

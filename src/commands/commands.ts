@@ -1,8 +1,9 @@
 import { ChatInputCommandInteraction, REST, Routes, SlashCommandBuilder } from 'discord.js';
 import { getMentionUserText } from '../batch/scraper';
-import { DataSourceCodeOptions } from '../models/DataSourceCode';
+import { DataSourceCode, DataSourceCodeOptions } from '../models/DataSourceCode';
 import { prisma } from '../services/prisma';
 import { Command } from './command.model';
+import { toggleScraper } from '../services/configService';
 
 export async function initCommands() {
 	const rest = new REST({
@@ -248,11 +249,33 @@ export const resetUser: Command = {
 	}
 }
 
+export const toggleStorygraphScraperCommand: Command = {
+	name: 'togglestorygraph',
+	builder: new SlashCommandBuilder()
+		.setName('togglestorygraph')
+		.setDescription('Toggle Storygraph scraper on or off'),
+	handler: async () => {
+		toggleScraper(DataSourceCode.STORYGRAPH);
+	}
+}
+
+export const toggleGoodreadsScraperCommand: Command = {
+	name: 'togglegoodreads',
+	builder: new SlashCommandBuilder()
+		.setName('togglegoodreads')
+		.setDescription('Toggle Goodreads scraper on or off'),
+	handler: async () => {
+		toggleScraper(DataSourceCode.STORYGRAPH);
+	}
+}
+
 export const COMMANDS: Command[] = [
 	addUserCommand,
 	removeUserCommand,
 	resetAllUsersCommand,
 	changeUserDataSourceCommand,
 	listUsersAndBooks,
-	resetUser
+	resetUser,
+	toggleStorygraphScraperCommand,
+	toggleGoodreadsScraperCommand
 ];
