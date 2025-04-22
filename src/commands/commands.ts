@@ -3,7 +3,7 @@ import { getMentionUserText } from '../batch/scraper';
 import { DataSourceCode, DataSourceCodeOptions } from '../models/DataSourceCode';
 import { prisma } from '../services/prisma';
 import { Command } from './command.model';
-import { toggleScraper } from '../services/configService';
+import { isScraperEnabled, toggleScraper } from '../services/configService';
 
 export async function initCommands() {
 	const rest = new REST({
@@ -256,6 +256,7 @@ export const toggleStorygraphScraperCommand: Command = {
 		.setDescription('Toggle Storygraph scraper on or off'),
 	handler: async () => {
 		toggleScraper(DataSourceCode.STORYGRAPH);
+		console.log('Toggle Storygraph scraper, new value is', isScraperEnabled(DataSourceCode.STORYGRAPH));
 	}
 }
 
@@ -265,7 +266,8 @@ export const toggleGoodreadsScraperCommand: Command = {
 		.setName('togglegoodreads')
 		.setDescription('Toggle Goodreads scraper on or off'),
 	handler: async () => {
-		toggleScraper(DataSourceCode.STORYGRAPH);
+		toggleScraper(DataSourceCode.GOODREADS);
+		console.log('Toggle Goodreads scraper, new value is', isScraperEnabled(DataSourceCode.GOODREADS));
 	}
 }
 
