@@ -47,15 +47,16 @@ export async function scrapeBooks(client: Client) {
 	let storygraphErrorCount = 0;
 	let goodreadsErrorCount = 0;
 
-	let publishActions: (PublishAction | undefined)[] = [];
+	let storygraphActions: (PublishAction | undefined)[] = [];
+	let goodreadsActions: (PublishAction | undefined)[] = [];
 
 	for (const user of users) {
 		console.log(`Starting scraping books for user ${user.dataSourceUserId}`);
 		try {
 			if (user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
-				publishActions.push(await storygraphScraper.handleUser(user, client, page));
+				storygraphActions.push(await storygraphScraper.handleUser(user, client, page));
 			} else if (user.dataSourceCode === DataSourceCode.GOODREADS) {
-				publishActions.push(await goodreadsScraper.handleUser(user, client));
+				goodreadsActions.push(await goodreadsScraper.handleUser(user, client));
 			}
 		} catch (e: any) {
 			if (e.name !== 'TimeoutError' && Object.keys(e).length > 0) {
@@ -71,14 +72,8 @@ export async function scrapeBooks(client: Client) {
 		console.log(`Finished scraping books for user ${user.dataSourceUserId}`);
 	}
 
-	if (publishActions.reduce((totalBooks, userAction) => userAction ? totalBooks + userAction.booksCount : 0, 0)  === 0) {
-		await sendAdminMessage('Error: No user scraped books - skipping', client);
-	} else {
-		for (const action of publishActions) {
-			await action?.handlePublishFinishedBooks();
-			await action?.handlePublishStartedBooks();
-		}
-	}
+	await handleActions(storygraphActions, client);
+	await handleActions(goodreadsActions, client);
 
 	await browser.close();
 
@@ -119,6 +114,17 @@ export async function scrapeBooks(client: Client) {
 		await sendAdminMessage('All Goodreads users have errors, manually restarting Booktracker', client);
 		restartPm2();
 		return;
+	}
+}
+
+async function handleActions(actions: (PublishAction | undefined)[], client: Client) {
+	if (actions.reduce((totalBooks, userAction) => userAction ? totalBooks + userAction.booksCount : 0, 0)  === 0) {
+		await sendAdminMessage('Error: No Storygraph scraped books - skipping', client);
+	} else {
+		for (const action of actions) {
+			await action?.handlePublishFinishedBooks();
+			await action?.handlePublishStartedBooks();
+		}
 	}
 }
 
