@@ -73,8 +73,8 @@ export async function scrapeBooks(client: Client) {
 		console.log(`Finished scraping books for user ${user.dataSourceUserId}`);
 	}
 
-	await handleActions(storygraphActions, client);
-	await handleActions(goodreadsActions, client);
+	await handleActions(storygraphActions, DataSourceCode.STORYGRAPH, client);
+	await handleActions(goodreadsActions, DataSourceCode.GOODREADS, client);
 
 	await browser.close();
 
@@ -118,9 +118,9 @@ export async function scrapeBooks(client: Client) {
 	}
 }
 
-async function handleActions(actions: (PublishAction | undefined)[], client: Client) {
-	if (actions.reduce((totalBooks, userAction) => userAction ? totalBooks + userAction.booksCount : 0, 0)  === 0) {
-		await sendAdminMessage('Error: No Storygraph scraped books - skipping', client);
+async function handleActions(actions: (PublishAction | undefined)[], datasource: DataSourceCode, client: Client) {
+	if (isScraperEnabled(datasource) && actions.reduce((totalBooks, userAction) => userAction ? totalBooks + userAction.booksCount : 0, 0) === 0) {
+		await sendAdminMessage(`Error: No ${datasource} scraped books - skipping`, client);
 	} else {
 		for (const action of actions) {
 			await action?.handlePublishFinishedBooks();
