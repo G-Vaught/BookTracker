@@ -273,6 +273,20 @@ export const toggleGoodreadsScraperCommand: Command = {
 	}
 }
 
+export const currentScrapersCommand: Command = {
+	name: 'currentscrapers',
+	builder: new SlashCommandBuilder()
+		.setName('currentscrapers')
+		.setDescription('Print the current scrapers and their status'),
+	handler: async (interaction: ChatInputCommandInteraction) => {
+		let message = 'Current Scrapers\n\n';
+		for (let entry of Object.entries(DataSourceCode)) {
+			message += `${entry[0]}: ${await isScraperEnabled(entry[1])}\n`
+		}
+		interaction.reply(message);
+	}
+}
+
 export const COMMANDS: Command[] = [
 	addUserCommand,
 	removeUserCommand,
@@ -281,5 +295,6 @@ export const COMMANDS: Command[] = [
 	listUsersAndBooks,
 	resetUser,
 	toggleStorygraphScraperCommand,
-	toggleGoodreadsScraperCommand
+	toggleGoodreadsScraperCommand,
+	currentScrapersCommand
 ];
