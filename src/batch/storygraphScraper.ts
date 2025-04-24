@@ -18,6 +18,7 @@ const signin_submit_id = '#sign-in-btn';
 export async function signin(page: Page) {
 	await page.bringToFront();
 	await page.goto(SIGNIN_URL);
+	await page.waitForResponse(SIGNIN_URL);
 	await page.waitForSelector(signin_email_id);
 	await page.type(signin_email_id, process.env.STORYGRAPH_EMAIL!);
 	await page.type(signin_password_id, process.env.STORYGRAPH_PASSWORD!);

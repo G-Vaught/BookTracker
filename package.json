@@ -20,7 +20,7 @@
 		"discord.js": "^14.14.1",
 		"dotenv": "^16.4.4",
 		"nodemon": "^3.0.3",
-		"puppeteer": "^23.1.0"
+		"puppeteer": "npm:rebrowser-puppeteer@^23.3.1"
 	},
 	"devDependencies": {
 		"@types/node": "^20.11.19",

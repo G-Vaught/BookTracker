@@ -22,7 +22,12 @@ export async function scrapeBooks(client: Client) {
 	let isStorygraphSignedIn = false;
 
 	const browser = await puppeteer.launch({
-		headless: true
+		headless: true,
+		defaultViewport: {
+			height: 889,
+			width: 625
+		},
+		args: ['--disable-blink-features=AutomationControlled']
 	});
 	const [page] = await browser.pages();
 
