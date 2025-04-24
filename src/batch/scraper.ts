@@ -20,6 +20,8 @@ export type PublishAction = {
 
 export async function scrapeBooks(client: Client) {
 	let isStorygraphSignedIn = false;
+	const isStorygraphScraperEnabled = await isScraperEnabled(DataSourceCode.STORYGRAPH);
+	const isGoodreadsScraperEnabled = await isScraperEnabled(DataSourceCode.GOODREADS);
 
 	const browser = await puppeteer.launch({
 		headless: true,
@@ -39,7 +41,7 @@ export async function scrapeBooks(client: Client) {
 
 	const hasStorygraphUsers = users.some(user => user.dataSourceCode === DataSourceCode.STORYGRAPH);
 
-	if (isScraperEnabled(DataSourceCode.STORYGRAPH) && hasStorygraphUsers) {
+	if (isStorygraphScraperEnabled && hasStorygraphUsers) {
 		try {
 			await storygraphScraper.signin(page);
 			isStorygraphSignedIn = true;
@@ -59,9 +61,9 @@ export async function scrapeBooks(client: Client) {
 	for (const user of users) {
 		console.log(`Starting scraping books for user ${user.dataSourceUserId}`);
 		try {
-			if (isScraperEnabled(DataSourceCode.STORYGRAPH) && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
+			if (isStorygraphScraperEnabled && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
 				storygraphActions.push(await storygraphScraper.handleUser(user, client, page));
-			} else if (isScraperEnabled(DataSourceCode.GOODREADS) && user.dataSourceCode === DataSourceCode.GOODREADS) {
+			} else if (isGoodreadsScraperEnabled && user.dataSourceCode === DataSourceCode.GOODREADS) {
 				goodreadsActions.push(await goodreadsScraper.handleUser(user, client));
 			}
 		} catch (e: any) {
@@ -78,8 +80,8 @@ export async function scrapeBooks(client: Client) {
 		console.log(`Finished scraping books for user ${user.dataSourceUserId}`);
 	}
 
-	await handleActions(storygraphActions, DataSourceCode.STORYGRAPH, client);
-	await handleActions(goodreadsActions, DataSourceCode.GOODREADS, client);
+	await handleActions(storygraphActions, isStorygraphScraperEnabled, DataSourceCode.STORYGRAPH, client);
+	await handleActions(goodreadsActions, isGoodreadsScraperEnabled, DataSourceCode.GOODREADS, client);
 
 	await browser.close();
 
@@ -123,8 +125,8 @@ export async function scrapeBooks(client: Client) {
 	}
 }
 
-async function handleActions(actions: (PublishAction | undefined)[], datasource: DataSourceCode, client: Client) {
-	if (isScraperEnabled(datasource) && actions.reduce((totalBooks, userAction) => userAction ? totalBooks + userAction.booksCount : 0, 0) === 0) {
+async function handleActions(actions: (PublishAction | undefined)[], isScraperEnabled: boolean, datasource: DataSourceCode, client: Client) {
+	if (isScraperEnabled && actions.reduce((totalBooks, userAction) => userAction ? totalBooks + userAction.booksCount : 0, 0) === 0) {
 		await sendAdminMessage(`Error: No ${datasource} scraped books - skipping`, client);
 	} else {
 		for (const action of actions) {

@@ -255,9 +255,9 @@ export const toggleStorygraphScraperCommand: Command = {
 		.setName('togglestorygraph')
 		.setDescription('Toggle Storygraph scraper on or off'),
 	handler: async (interaction: ChatInputCommandInteraction) => {
-		toggleScraper(DataSourceCode.STORYGRAPH);
-		console.log('Toggle Storygraph scraper, new value is', isScraperEnabled(DataSourceCode.STORYGRAPH));
-		interaction.reply(`Storygraph scraper is now ${isScraperEnabled(DataSourceCode.STORYGRAPH) ? 'enabled': 'disabled'}`)
+		await toggleScraper(DataSourceCode.STORYGRAPH);
+		console.log('Toggle Storygraph scraper, new value is', await isScraperEnabled(DataSourceCode.STORYGRAPH));
+		interaction.reply(`Storygraph scraper is now ${await isScraperEnabled(DataSourceCode.STORYGRAPH) ? 'enabled': 'disabled'}`)
 	}
 }
 
@@ -267,9 +267,9 @@ export const toggleGoodreadsScraperCommand: Command = {
 		.setName('togglegoodreads')
 		.setDescription('Toggle Goodreads scraper on or off'),
 	handler: async (interaction: ChatInputCommandInteraction) => {
-		toggleScraper(DataSourceCode.GOODREADS);
-		console.log('Toggle Goodreads scraper, new value is', isScraperEnabled(DataSourceCode.GOODREADS));
-		interaction.reply(`Goodreads scraper is now ${isScraperEnabled(DataSourceCode.GOODREADS) ? 'enabled': 'disabled'}`)
+		await toggleScraper(DataSourceCode.GOODREADS);
+		console.log('Toggle Goodreads scraper, new value is', await isScraperEnabled(DataSourceCode.GOODREADS));
+		interaction.reply(`Goodreads scraper is now ${await isScraperEnabled(DataSourceCode.GOODREADS) ? 'enabled': 'disabled'}`)
 	}
 }
 

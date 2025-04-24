@@ -17,7 +17,7 @@ const signin_submit_id = '#sign-in-btn';
 
 export async function signin(page: Page) {
 	await page.bringToFront();
-	await page.goto(SIGNIN_URL);
+	await page.goto(SIGNIN_URL, {waitUntil: 'networkidle2'});
 	await page.waitForResponse(SIGNIN_URL);
 	await page.waitForSelector(signin_email_id);
 	await page.type(signin_email_id, process.env.STORYGRAPH_EMAIL!);

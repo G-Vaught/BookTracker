@@ -37,3 +37,11 @@ model Book {
 
   @@id([id, userId], name: "id_userId")
 }
+
+model Config {
+  name String @id
+  value String
+  
+  creationDate DateTime @default(now())
+  updatedDate  DateTime @updatedAt
+}
