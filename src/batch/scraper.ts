@@ -23,32 +23,36 @@ export async function scrapeBooks(client: Client) {
 	const isStorygraphScraperEnabled = await isScraperEnabled(DataSourceCode.STORYGRAPH);
 	const isGoodreadsScraperEnabled = await isScraperEnabled(DataSourceCode.GOODREADS);
 
-	const browser = await puppeteer.launch({
-		headless: true,
-		defaultViewport: {
-			height: 889,
-			width: 625
-		},
-		args: ['--disable-blink-features=AutomationControlled']
-	});
-	const [page] = await browser.pages();
-
 	const users = await prisma.user.findMany({
 		include: {
 			books: true
 		}
 	});
 
-	const hasStorygraphUsers = users.some(user => user.dataSourceCode === DataSourceCode.STORYGRAPH);
+	let browser;
+	let page;
 
-	if (isStorygraphScraperEnabled && hasStorygraphUsers) {
-		try {
-			await storygraphScraper.signin(page);
-			isStorygraphSignedIn = true;
-		} catch (e) {
-			console.log('Error occurred when signing in to Storygraph.');
-			console.log(e);
-			await sendAdminMessage(`Error occurred when signing in to Storygraph:\n ${JSON.stringify(e)}`, client);
+	if (isStorygraphScraperEnabled) {
+		browser = await puppeteer.launch({
+			headless: true,
+			defaultViewport: {
+				height: 889,
+				width: 625
+			},
+			args: ['--disable-blink-features=AutomationControlled']
+		});
+		[page] = await browser.pages();
+		const hasStorygraphUsers = users.some(user => user.dataSourceCode === DataSourceCode.STORYGRAPH);
+
+		if (hasStorygraphUsers) {
+			try {
+				await storygraphScraper.signin(page);
+				isStorygraphSignedIn = true;
+			} catch (e) {
+				console.log('Error occurred when signing in to Storygraph.');
+				console.log(e);
+				await sendAdminMessage(`Error occurred when signing in to Storygraph:\n ${JSON.stringify(e)}`, client);
+			}
 		}
 	}
 
@@ -61,7 +65,7 @@ export async function scrapeBooks(client: Client) {
 	for (const user of users) {
 		console.log(`Starting scraping books for user ${user.dataSourceUserId}`);
 		try {
-			if (isStorygraphScraperEnabled && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
+			if (isStorygraphScraperEnabled && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn && page) {
 				storygraphActions.push(await storygraphScraper.handleUser(user, client, page));
 			} else if (isGoodreadsScraperEnabled && user.dataSourceCode === DataSourceCode.GOODREADS) {
 				goodreadsActions.push(await goodreadsScraper.handleUser(user, client));
@@ -83,7 +87,9 @@ export async function scrapeBooks(client: Client) {
 	await handleActions(storygraphActions, isStorygraphScraperEnabled, DataSourceCode.STORYGRAPH, client);
 	await handleActions(goodreadsActions, isGoodreadsScraperEnabled, DataSourceCode.GOODREADS, client);
 
-	await browser.close();
+	if (browser) {
+		await browser.close();
+	}
 
 	const storygraphUserCount = users.filter(user => user.dataSourceCode === DataSourceCode.STORYGRAPH).length;
 	const goodreadsUserCount = users.filter(user => user.dataSourceCode === DataSourceCode.GOODREADS).length;
