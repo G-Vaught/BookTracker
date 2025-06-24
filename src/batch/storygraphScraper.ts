@@ -119,9 +119,11 @@ async function scrapePageBooks(url: string, user: User, page: Page) {
 			el => el.querySelector('.book-title-author-and-series a')?.textContent,
 			bookPane
 		)) as string;
+		const coverUrl = await bookPane.evaluate(el => el.querySelector('img')?.src) || '';
 		scrapedBooks.push({
 			id: bookId!,
-			title: bookTitle
+			title: bookTitle,
+			imgUrl: coverUrl
 		});
 	}
 

@@ -34,7 +34,7 @@ export async function scrapeBooks(client: Client) {
 
 	if (isStorygraphScraperEnabled) {
 		browser = await puppeteer.launch({
-			headless: true,
+			headless: false,
 			defaultViewport: {
 				height: 889,
 				width: 625
@@ -162,10 +162,11 @@ export async function publishStartedBooks(
 
 		//Skip book if title matches current book, likely version change
 		if (!isNewUser && !currentBooks.some(currentBook => newBook.title === currentBook.title)) {
-			await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(
-				`${getMentionUserText(user.userId)} has started **${newBook.title}**!
-                                    ${baseUrl}/${newDbBook.id}`
-			);
+			let msg = `${getMentionUserText(user.userId)} has started **[${newBook.title}](${baseUrl}/${newDbBook.id})**`;
+			if (newBook.imgUrl) {
+				msg += `\n[Cover](${newBook.imgUrl})`;
+			}
+			await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(msg);
 		}
 	}
 }
@@ -191,10 +192,12 @@ export async function publishFinishedBooks(
 
 		//Only show message if user has marked book as 'finished'
 		if (scrapedFinishedBooks.map(book => book.id).includes(finishedBook.id)) {
-			await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(
-				`${getMentionUserText(user.userId)} has finished **${finishedBook.title}**!
-                                    ${baseUrl}/${finishedBook.id}`
-			);
+			let msg = `${getMentionUserText(user.userId)} has finished **[${finishedBook.title}](${baseUrl}/${finishedBook.id})**`;
+			const imgUrl = scrapedFinishedBooks.find(book => book.id === finishedBook.id)?.imgUrl;
+			if (imgUrl) {
+				msg += `\n[Cover](${imgUrl})`;
+			}
+			await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(msg);
 		}
 	}
 }
@@ -221,4 +224,5 @@ export const doScrapedBooksMatch = (a: string[], b: string[]) =>
 export type SimpleBook = {
 	id: string;
 	title: string;
+	imgUrl?: string;
 };
