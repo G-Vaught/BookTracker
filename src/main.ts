@@ -5,6 +5,9 @@ import { COMMANDS, initCommands } from './commands/commands';
 require('dotenv').config();
 require('./services/log.service');
 
+//Set virtual display
+process.env.DISPLAY = ':1';
+
 const token = process.env.DISCORD_TOKEN;
 
 const client = new Client({
