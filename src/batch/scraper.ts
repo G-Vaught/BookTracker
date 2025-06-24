@@ -163,10 +163,10 @@ export async function publishStartedBooks(
 		//Skip book if title matches current book, likely version change
 		if (!isNewUser && !currentBooks.some(currentBook => newBook.title === currentBook.title)) {
 			let msg = `${getMentionUserText(user.userId)} has started **[${newBook.title}](${baseUrl}/${newDbBook.id})**`;
-			if (newBook.imgUrl) {
-				msg += `\n[Cover](${newBook.imgUrl})`;
-			}
 			await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(msg);
+			if (newBook.imgUrl) {
+				await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(newBook.imgUrl);
+			}
 		}
 	}
 }
@@ -193,11 +193,11 @@ export async function publishFinishedBooks(
 		//Only show message if user has marked book as 'finished'
 		if (scrapedFinishedBooks.map(book => book.id).includes(finishedBook.id)) {
 			let msg = `${getMentionUserText(user.userId)} has finished **[${finishedBook.title}](${baseUrl}/${finishedBook.id})**`;
+			await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(msg);
 			const imgUrl = scrapedFinishedBooks.find(book => book.id === finishedBook.id)?.imgUrl;
 			if (imgUrl) {
-				msg += `\n[Cover](${imgUrl})`;
+				await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(imgUrl);
 			}
-			await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(msg);
 		}
 	}
 }
