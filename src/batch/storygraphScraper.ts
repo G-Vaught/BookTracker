@@ -15,10 +15,12 @@ const signin_email_id = '#user_email';
 const signin_password_id = '#user_password';
 const signin_submit_id = '#sign-in-btn';
 
-export async function signin(page: Page) {
+export async function signin(page: Page, CLOUDFLARE_CAPTCHA_ENABLED: boolean) {
 	await page.bringToFront();
 	await page.goto(SIGNIN_URL, {waitUntil: 'networkidle2'});
-	await page.waitForResponse(SIGNIN_URL);
+	if (CLOUDFLARE_CAPTCHA_ENABLED) {
+		await page.waitForResponse(SIGNIN_URL);
+	}
 	await page.waitForSelector(signin_email_id);
 	await page.type(signin_email_id, process.env.STORYGRAPH_EMAIL!);
 	await page.type(signin_password_id, process.env.STORYGRAPH_PASSWORD!);

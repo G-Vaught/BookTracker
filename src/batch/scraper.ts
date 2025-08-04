@@ -11,6 +11,7 @@ import * as storygraphScraper from './storygraphScraper';
 import { isScraperEnabled } from '../services/configService';
 
 const ERROR_ALERT_THRESHOLD = 0.8;
+const CLOUDFLARE_CAPTCHA_ENABLED = false;
 
 export type PublishAction = {
 	booksCount: number,
@@ -34,7 +35,7 @@ export async function scrapeBooks(client: Client) {
 
 	if (isStorygraphScraperEnabled) {
 		browser = await puppeteer.launch({
-			headless: false,
+			headless: !CLOUDFLARE_CAPTCHA_ENABLED,
 			defaultViewport: {
 				height: 889,
 				width: 625
@@ -46,7 +47,7 @@ export async function scrapeBooks(client: Client) {
 
 		if (hasStorygraphUsers) {
 			try {
-				await storygraphScraper.signin(page);
+				await storygraphScraper.signin(page, CLOUDFLARE_CAPTCHA_ENABLED);
 				isStorygraphSignedIn = true;
 			} catch (e) {
 				console.log('Error occurred when signing in to Storygraph.');
