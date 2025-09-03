@@ -143,10 +143,15 @@ async function scrapeBookTable(fetchRes: Response): Promise<SimpleBook[]> {
 				console.error('Error parsing href for ID');
 				return;
 			}
+			const imgUrl = $('.cover > div > div > a > img', bookTableRow).attr('src');
+			const resizedUrl = imgUrl?.substring(0, imgUrl.length - 11) + '.jpg';
 			const book: SimpleBook = {
 				title,
-				id: id[0]
+				id: id[0],
 			};
+			if (resizedUrl) {
+				book.imgUrl = resizedUrl;
+			}
 			scrapedBooks.push(book);
 		});
 	}
