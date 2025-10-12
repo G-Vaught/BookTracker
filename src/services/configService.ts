@@ -43,3 +43,11 @@ export const isScraperEnabled = async (scraper: DataSourceCode) => {
         return false;
     }
 }
+
+export const isCloudflareConfigEnabled = async () => {
+	const captchaConfig = await prisma.config.findFirst({where: {name: 'isCloudflareCaptchaEnabled'}});
+    if (captchaConfig) {
+        return captchaConfig.value === 'true';
+    }
+    return false;
+}

@@ -3,7 +3,7 @@ import { getMentionUserText } from '../batch/scraper';
 import { DataSourceCode, DataSourceCodeOptions } from '../models/DataSourceCode';
 import { prisma } from '../services/prisma';
 import { Command } from './command.model';
-import { isScraperEnabled, toggleScraper } from '../services/configService';
+import { isCloudflareConfigEnabled, isScraperEnabled, toggleScraper } from '../services/configService';
 
 export async function initCommands() {
 	const rest = new REST({
@@ -287,6 +287,25 @@ export const currentScrapersCommand: Command = {
 	}
 }
 
+export const toggleIsCloudflareCaptchaEnabled: Command = {
+	name: 'togglecloudflarecaptcha',
+	builder: new SlashCommandBuilder()
+		.setName('togglecloudflarecaptcha')
+		.setDescription('Toggle Storygraph Cloudflare bot detection captcha'),
+	handler: async (interation: ChatInputCommandInteraction) => {
+		const isCaptchaEnabled = await isCloudflareConfigEnabled();
+		if (isCaptchaEnabled) {
+			await prisma.config.update({where: {name: 'isCloudflareCaptchaEnabled'}, data: {value: 'false'}});
+			console.log('Cloudflare Captcha is disabled')
+			interation.reply('Cloudflare Captcha is disabled');
+		} else {
+			await prisma.config.update({where: {name: 'isCloudflareCaptchaEnabled'}, data: {value: 'true'}});
+			console.log('Cloudflare Captcha is enabled');
+			interation.reply('Cloudflare Captcha is enabled');
+		}
+	}
+}
+
 export const COMMANDS: Command[] = [
 	addUserCommand,
 	removeUserCommand,
@@ -296,5 +315,6 @@ export const COMMANDS: Command[] = [
 	resetUser,
 	toggleStorygraphScraperCommand,
 	toggleGoodreadsScraperCommand,
-	currentScrapersCommand
+	currentScrapersCommand,
+	toggleIsCloudflareCaptchaEnabled
 ];

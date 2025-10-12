@@ -8,10 +8,9 @@ import { prisma } from '../services/prisma';
 import * as goodreadsScraper from './goodreadsScraper';
 import { restartPm2 } from './linuxHandler';
 import * as storygraphScraper from './storygraphScraper';
-import { isScraperEnabled } from '../services/configService';
+import { isCloudflareConfigEnabled, isScraperEnabled } from '../services/configService';
 
 const ERROR_ALERT_THRESHOLD = 0.8;
-const CLOUDFLARE_CAPTCHA_ENABLED = false;
 
 export type PublishAction = {
 	booksCount: number,
@@ -21,6 +20,7 @@ export type PublishAction = {
 
 export async function scrapeBooks(client: Client) {
 	let isStorygraphSignedIn = false;
+	let isCloudflareCaptchaEnabled = await isCloudflareConfigEnabled();
 	const isStorygraphScraperEnabled = await isScraperEnabled(DataSourceCode.STORYGRAPH);
 	const isGoodreadsScraperEnabled = await isScraperEnabled(DataSourceCode.GOODREADS);
 
@@ -35,7 +35,7 @@ export async function scrapeBooks(client: Client) {
 
 	if (isStorygraphScraperEnabled) {
 		browser = await puppeteer.launch({
-			headless: !CLOUDFLARE_CAPTCHA_ENABLED,
+			headless: !isCloudflareCaptchaEnabled,
 			defaultViewport: {
 				height: 889,
 				width: 625
@@ -47,7 +47,7 @@ export async function scrapeBooks(client: Client) {
 
 		if (hasStorygraphUsers) {
 			try {
-				await storygraphScraper.signin(page, CLOUDFLARE_CAPTCHA_ENABLED);
+				await storygraphScraper.signin(page, isCloudflareCaptchaEnabled);
 				isStorygraphSignedIn = true;
 			} catch (e) {
 				console.log('Error occurred when signing in to Storygraph.');
