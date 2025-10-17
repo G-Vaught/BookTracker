@@ -12,11 +12,11 @@ export async function initCommands() {
 	try {
 		console.log('Registering Commands');
 
-		await rest.put(Routes.applicationGuildCommands(process.env.DISCORD_ID!, process.env.GUILD_ID!), {
+		await rest.put(Routes.applicationCommands(process.env.DISCORD_ID!), {
 			body: COMMANDS.map(command => command.builder.toJSON())
 		});
 
-		console.log('Registered Commmands');
+		console.log('Registered Commmands: ', COMMANDS.map(command => command.name));
 	} catch (e) {
 		console.error('Error registering Commands', e);
 	}
