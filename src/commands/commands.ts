@@ -273,16 +273,15 @@ export const toggleGoodreadsScraperCommand: Command = {
 	}
 }
 
-export const currentScrapersCommand: Command = {
-	name: 'currentscrapers',
+export const currentConfigsCommand: Command = {
+	name: 'currentconfigs',
 	builder: new SlashCommandBuilder()
-		.setName('currentscrapers')
-		.setDescription('Print the current scrapers and their status'),
+		.setName('currentconfigs')
+		.setDescription('Print the current configs and their status'),
 	handler: async (interaction: ChatInputCommandInteraction) => {
-		let message = 'Current Scrapers\n\n';
-		for (let entry of Object.entries(DataSourceCode)) {
-			message += `${entry[0]}: ${await isScraperEnabled(entry[1])}\n`
-		}
+		let message = 'Current Configs\n';
+		const configs = await prisma.config.findMany();
+		configs.forEach(config => message += `${config.name}: ${config.value}\n`);
 		interaction.reply(message);
 	}
 }
@@ -315,6 +314,6 @@ export const COMMANDS: Command[] = [
 	resetUser,
 	toggleStorygraphScraperCommand,
 	toggleGoodreadsScraperCommand,
-	currentScrapersCommand,
+	currentConfigsCommand,
 	toggleIsCloudflareCaptchaEnabled
 ];

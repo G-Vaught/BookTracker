@@ -35,7 +35,7 @@ export async function scrapeBooks(client: Client) {
 
 	if (isStorygraphScraperEnabled) {
 		browser = await puppeteer.launch({
-			headless: !isCloudflareCaptchaEnabled,
+			headless: false,
 			defaultViewport: {
 				height: 889,
 				width: 625
