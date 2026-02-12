@@ -118,7 +118,7 @@ async function scrapePageBooks(url: string, user: User, page: Page) {
 	for (const bookPane of bookPanes) {
 		const bookId = await bookPane.evaluate(el => el.getAttribute('data-book-id'));
 		const bookTitle = (await page.evaluate(
-			el => el.querySelector('.book-title-author-and-series a')?.textContent,
+			el => el.querySelector('.book-title-author-and-series h3 a')?.textContent,
 			bookPane
 		)) as string;
 		const coverUrl = await bookPane.evaluate(el => el.querySelector('img')?.src) || '';
