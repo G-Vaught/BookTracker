@@ -3,7 +3,7 @@ import { Client } from 'discord.js';
 import { Page } from 'puppeteer';
 import { UserWithBook } from '../models/UserWithBooks';
 import { prisma } from '../services/prisma';
-import { PublishAction, SimpleBook, doScrapedBooksMatch, publishFinishedBooks, publishStartedBooks } from './scraper';
+import { PublishAction, SimpleBook, UserResult, doScrapedBooksMatch, publishFinishedBooks, publishStartedBooks } from './scraper';
 
 const BASE_STORYGRAPH_URL = 'https://app.thestorygraph.com';
 const SIGNIN_URL = `${BASE_STORYGRAPH_URL}/users/sign_in`;
@@ -17,7 +17,7 @@ const signin_submit_id = '#sign-in-btn';
 
 export async function signin(page: Page, CLOUDFLARE_CAPTCHA_ENABLED: boolean) {
 	await page.bringToFront();
-	await page.goto(SIGNIN_URL, {waitUntil: 'networkidle2'});
+	await page.goto(SIGNIN_URL, { waitUntil: 'networkidle2' });
 	if (CLOUDFLARE_CAPTCHA_ENABLED) {
 		await page.waitForResponse(SIGNIN_URL);
 	}
@@ -54,7 +54,7 @@ export async function handleUser(user: UserWithBook, client: Client, page: Page)
 		const secondScrape = await scrapePageBooks(FINISHED_BOOKS_URL, user, page);
 		if (
 			!doScrapedBooksMatch(
-				books.map(book => book.id),
+				scrapedFinishedBooks.map(book => book.id),
 				secondScrape.map(book => book.id)
 			)
 		) {
@@ -79,6 +79,69 @@ export async function handleUser(user: UserWithBook, client: Client, page: Page)
 	let handlePublishFinishedBooks = async () => {
 		if (finishedBooks.length > 0) {
 			await publishFinishedBooks(finishedBooks, scrapedFinishedBooks, client, user, BASE_BOOK_URL)
+		}
+	}
+
+	if (user.isFirstLookup) {
+		await prisma.user.update({
+			where: {
+				id: user.id
+			},
+			data: {
+				isFirstLookup: false
+			}
+		});
+	}
+
+	return {
+		booksCount: books.length,
+		handlePublishStartedBooks,
+		handlePublishFinishedBooks
+	};
+}
+
+export async function scrapeCurrentPage(user: UserWithBook, page: Page) {
+	return scrapePageBooks(BASE_CURRENT_READING_URL, user, page);
+}
+
+export async function scrapeFinishedPage(user: UserWithBook, page: Page) {
+	return scrapePageBooks(FINISHED_BOOKS_URL, user, page);
+}
+
+export async function handleUsersBooks(user: UserWithBook, result: UserResult, client: Client) {
+	const dbBooks = user.books;
+	if (
+		!doScrapedBooksMatch(
+			result.currentResult1.map(book => book.id),
+			result.currentResult2.map(book => book.id)
+		)
+	) {
+		console.error('Current books scrape returned different results, skipping user');
+		return;
+	}
+
+	if (
+		!doScrapedBooksMatch(
+			result.finishedResult1.map(book => book.id),
+			result.finishedResult2.map(book => book.id)
+		)
+	) {
+		console.error('Finished books scrape returned different results, skipping user');
+		return;
+	}
+	const books = result.currentResult1;
+	const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
+	const newBooks = books.filter(book => !dbBooks.map(db => db.id).includes(book.id));
+
+	let handlePublishStartedBooks = async () => {
+		if (newBooks.length > 0) {
+			await publishStartedBooks(newBooks, dbBooks, user, user.isFirstLookup, client, BASE_BOOK_URL);
+		}
+	}
+
+	let handlePublishFinishedBooks = async () => {
+		if (finishedBooks.length > 0) {
+			await publishFinishedBooks(finishedBooks, result.finishedResult1, client, user, BASE_BOOK_URL)
 		}
 	}
 

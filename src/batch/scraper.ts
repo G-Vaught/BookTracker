@@ -1,8 +1,8 @@
 import { Book, User } from '@prisma/client';
 import { Client, TextChannel } from 'discord.js';
-import puppeteer from 'puppeteer';
+import puppeteer, { Page } from 'puppeteer';
 import { DataSourceCode } from '../models/DataSourceCode';
-import { UserWithBook as UserWithBooks } from '../models/UserWithBooks';
+import { UserWithBook, UserWithBook as UserWithBooks } from '../models/UserWithBooks';
 import { getCurrentDateTime } from '../services/log.service';
 import { prisma } from '../services/prisma';
 import * as goodreadsScraper from './goodreadsScraper';
@@ -17,6 +17,13 @@ export type PublishAction = {
 	handlePublishStartedBooks: () => Promise<void>,
 	handlePublishFinishedBooks: () => Promise<void>,
 }
+
+export type UserResult = {
+	currentResult1: SimpleBook[];
+	currentResult2: SimpleBook[];
+	finishedResult1: SimpleBook[];
+	finishedResult2: SimpleBook[];
+};
 
 export async function scrapeBooks(client: Client) {
 	let isStorygraphSignedIn = false;
@@ -63,11 +70,22 @@ export async function scrapeBooks(client: Client) {
 	let storygraphActions: (PublishAction | undefined)[] = [];
 	let goodreadsActions: (PublishAction | undefined)[] = [];
 
+	const userResults = new Map<string, UserResult>();
+	users.forEach(user => userResults.set(user.id, {
+		currentResult1: [],
+		currentResult2: [],
+		finishedResult1: [],
+		finishedResult2: []
+	}));
+
+	//Scrape 1
 	for (const user of users) {
-		console.log(`Starting scraping books for user ${user.dataSourceUserId}`);
+		console.log(`Scraping current books for user ${user.dataSourceUserId}`);
 		try {
 			if (isStorygraphScraperEnabled && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn && page) {
-				storygraphActions.push(await storygraphScraper.handleUser(user, client, page));
+				const result = userResults.get(user.id)!;
+				const currentBooks = await storygraphScraper.scrapeCurrentPage(user, page);
+				result.currentResult1 = currentBooks;
 			} else if (isGoodreadsScraperEnabled && user.dataSourceCode === DataSourceCode.GOODREADS) {
 				goodreadsActions.push(await goodreadsScraper.handleUser(user, client));
 			}
@@ -82,8 +100,81 @@ export async function scrapeBooks(client: Client) {
 				goodreadsErrorCount++;
 			}
 		}
-		console.log(`Finished scraping books for user ${user.dataSourceUserId}`);
 	}
+
+	//Scrape 2
+	for (const user of users) {
+		console.log(`Scraping current books for user ${user.dataSourceUserId}`);
+		try {
+			if (isStorygraphScraperEnabled && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn && page) {
+				const result = userResults.get(user.id)!;
+				const currentBooks = await storygraphScraper.scrapeCurrentPage(user, page);
+				result.currentResult2 = currentBooks;
+			}
+		} catch (e: any) {
+			if (e.name !== 'TimeoutError' && Object.keys(e).length > 0) {
+				handleError(user, e, client);
+			}
+			if (user.dataSourceCode === DataSourceCode.STORYGRAPH) {
+				storygraphErrorCount++;
+			}
+			if (user.dataSourceCode === DataSourceCode.GOODREADS) {
+				goodreadsErrorCount++;
+			}
+		}
+	}
+
+	//Scrape 3
+	for (const user of users) {
+		console.log(`Scraping finished books for user ${user.dataSourceUserId}`);
+		try {
+			if (isStorygraphScraperEnabled && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn && page) {
+				const result = userResults.get(user.id)!;
+				const finishedBooks = await storygraphScraper.scrapeFinishedPage(user, page);
+				result.finishedResult1 = finishedBooks;
+			}
+		} catch (e: any) {
+			if (e.name !== 'TimeoutError' && Object.keys(e).length > 0) {
+				handleError(user, e, client);
+			}
+			if (user.dataSourceCode === DataSourceCode.STORYGRAPH) {
+				storygraphErrorCount++;
+			}
+			if (user.dataSourceCode === DataSourceCode.GOODREADS) {
+				goodreadsErrorCount++;
+			}
+		}
+	}
+
+	//Scrape 4
+	for (const user of users) {
+		console.log(`Scraping finished books for user ${user.dataSourceUserId}`);
+		try {
+			if (isStorygraphScraperEnabled && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn && page) {
+				const result = userResults.get(user.id)!;
+				const finishedBooks = await storygraphScraper.scrapeFinishedPage(user, page);
+				result.finishedResult2 = finishedBooks;
+			}
+		} catch (e: any) {
+			if (e.name !== 'TimeoutError' && Object.keys(e).length > 0) {
+				handleError(user, e, client);
+			}
+			if (user.dataSourceCode === DataSourceCode.STORYGRAPH) {
+				storygraphErrorCount++;
+			}
+			if (user.dataSourceCode === DataSourceCode.GOODREADS) {
+				goodreadsErrorCount++;
+			}
+		}
+	}
+
+	for (const user of users) {
+		if (isStorygraphScraperEnabled && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn && page) {
+			const result = userResults.get(user.id)!;
+			storygraphActions.push(await storygraphScraper.handleUsersBooks(user, result, client));
+		}
+	}
+
 
 	await handleActions(storygraphActions, isStorygraphScraperEnabled, DataSourceCode.STORYGRAPH, client);
 	await handleActions(goodreadsActions, isGoodreadsScraperEnabled, DataSourceCode.GOODREADS, client);
@@ -96,7 +187,7 @@ export async function scrapeBooks(client: Client) {
 	const goodreadsUserCount = users.filter(user => user.dataSourceCode === DataSourceCode.GOODREADS).length;
 
 	const errorAlertHandler = async (errorCount: number, userCount: number, client: Client, message: string) => {
-		if (errorCount > 0 && userCount > 0 && errorCount / userCount >= ERROR_ALERT_THRESHOLD) {
+		if (errorCount > 0 && userCount > 0 && errorCount / (userCount * 4) >= ERROR_ALERT_THRESHOLD) {
 			await sendAdminMessage(message, client);
 		}
 	};
