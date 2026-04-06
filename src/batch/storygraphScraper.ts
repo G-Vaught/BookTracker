@@ -188,7 +188,8 @@ async function scrapePageBooks(url: string, user: User, page: Page) {
 		scrapedBooks.push({
 			id: bookId!,
 			title: bookTitle,
-			imgUrl: coverUrl
+			imgUrl: coverUrl,
+			user: user.id
 		});
 	}
 
