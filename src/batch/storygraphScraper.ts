@@ -116,7 +116,7 @@ export async function handleUsersBooks(user: UserWithBook, result: UserResult, c
 			result.currentResult2.map(book => book.id)
 		)
 	) {
-		console.error('Current books scrape returned different results, skipping user');
+		console.error(`${user.dataSourceUserId} - Current books scrape returned different results, skipping user`);
 		return;
 	}
 
@@ -126,7 +126,7 @@ export async function handleUsersBooks(user: UserWithBook, result: UserResult, c
 			result.finishedResult2.map(book => book.id)
 		)
 	) {
-		console.error('Finished books scrape returned different results, skipping user');
+		console.error(`${user.dataSourceUserId} - Finished books scrape returned different results, skipping user`);
 		return;
 	}
 	const books = result.currentResult1;
@@ -167,23 +167,23 @@ async function scrapePageBooks(url: string, user: User, page: Page) {
 	const scrapedBooks: SimpleBook[] = [];
 
 	await page.goto(`${url}/${user.dataSourceUserId}`);
-	console.log(`Page navigated to url: ${page.url()}`);
+	console.log(`${user.dataSourceUserId} - Page navigated to url: ${page.url()}`);
 	await page.waitForSelector('main');
 	const readBookPanes = await page.$$('.read-books-panes');
 	if (readBookPanes === undefined || readBookPanes === null) {
 		throw new Error(`Error getting read-book-panes, ${readBookPanes}`);
 	} else if (readBookPanes.length === 0) {
-		console.log('Book panes return null, no current books found');
+		console.log('${user.userId} - Book panes return null, no current books found');
 		return scrapedBooks;
 	}
 
 	if (page.url() !== `${url}/${user.dataSourceUserId}`) {
-		throw new Error(`Page URL ${page.url()} does not match expected URL`);
+		throw new Error(`${user.dataSourceUserId} - Page URL ${page.url()} does not match expected URL`);
 	}
 
 	const bookPanes = await page.$$('.read-books-panes > div');
 
-	console.log(`Found ${bookPanes.length} book pane(s)`);
+	console.log(`${user.dataSourceUserId} - Found ${bookPanes.length} book pane(s)`);
 
 	for (const bookPane of bookPanes) {
 		const bookId = await bookPane.evaluate(el => el.getAttribute('data-book-id'));
