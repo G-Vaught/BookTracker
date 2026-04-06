@@ -169,9 +169,16 @@ async function scrapePageBooks(url: string, user: User, page: Page) {
 	await page.goto(`${url}/${user.dataSourceUserId}`);
 	console.log(`Page navigated to url: ${page.url()}`);
 	await page.waitForSelector('main');
-	if (!(await page.$('.read-books-panes'))) {
+	const readBookPanes = await page.$$('.read-books-panes');
+	if (readBookPanes === undefined || readBookPanes === null) {
+		throw new Error(`Error getting read-book-panes, ${readBookPanes}`);
+	} else if (readBookPanes.length === 0) {
 		console.log('Book panes return null, no current books found');
 		return scrapedBooks;
+	}
+
+	if (page.url() !== `${url}/${user.dataSourceUserId}`) {
+		throw new Error(`Page URL ${page.url()} does not match expected URL`);
 	}
 
 	const bookPanes = await page.$$('.read-books-panes > div');
