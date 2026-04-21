@@ -2,28 +2,49 @@ import * as cheerio from 'cheerio';
 import { Client } from 'discord.js';
 import { UserWithBook } from '../models/UserWithBooks';
 import { prisma } from '../services/prisma';
-import { doScrapedBooksMatch, PublishAction, publishFinishedBooks, publishStartedBooks, SimpleBook } from './scraper';
+import { doScrapedBooksMatch, PublishAction, publishFinishedBooks, publishStartedBooks, SimpleBook, UserResult } from './scraper';
+import fetchCookie from 'fetch-cookie';
+import { CookieJar } from 'tough-cookie';
+import { Page } from 'puppeteer';
+import { User } from '@prisma/client';
+
+const SIGNIN_URL = 'https://www.goodreads.com/user/sign_in';
 
 const SHELF_BEGIN_URL = 'https://www.goodreads.com/review/list/';
 const CURRENTLY_READING_SHELF_END = '?shelf=currently-reading';
 const FINISHED_READING_SHELF_END = '?shelf=read';
 const BASE_BOOK_URL = 'https://www.goodreads.com/book/show';
 
-const BOOK_TABLE_EL_ID = '#booksBody';
+const GOTO_SIGNIN_BTN = '#choices > div > a:nth-child(4) > button'
+const signin_email_id = '#ap_email';
+const signin_password_id = '#ap_password';
+const signin_submit_id = '#signInSubmit';
 
-const BOOK_ID_REGEX = new RegExp('[0-9]+');
+const SIGNIN_EMAIL = process.env.GOODREADS_EMAIL!;
+const SIGNIN_PASS = process.env.GOODREADS_PASSWORD!;
 
-export async function handleUser(user: UserWithBook, client: Client): Promise<PublishAction | undefined> {
-	const userDbBooks = user.books;
+export async function signin(page: Page, CLOUDFLARE_CAPTCHA_ENABLED: boolean) {
+	await page.bringToFront();
+	await page.goto(SIGNIN_URL, { waitUntil: 'networkidle2' });
+	if (CLOUDFLARE_CAPTCHA_ENABLED) {
+		await page.waitForResponse(SIGNIN_URL);
+	}
+	await page.click(GOTO_SIGNIN_BTN);
+	await page.waitForSelector(signin_email_id);
+	await page.type(signin_email_id, SIGNIN_EMAIL);
+	await page.type(signin_password_id, SIGNIN_PASS!);
+	await Promise.all([page.click(signin_submit_id), page.waitForNavigation()]);
+}
 
-	//scrape current books
-	let scrapedCurrentBooks: SimpleBook[] = [];
+export async function handleUser(user: UserWithBook, client: Client, page: Page): Promise<PublishAction | undefined> {
+	const dbBooks = user.books;
+	let books: SimpleBook[] = [];
 	try {
-		scrapedCurrentBooks = await scrapeCurrentBooks(user);
-		const secondScrape = await scrapeCurrentBooks(user);
+		books = await scrapePageBooks(getCurrentReadingShelfURL(user), user, page);
+		const secondScrape = await scrapePageBooks(getCurrentReadingShelfURL(user), user, page);
 		if (
 			!doScrapedBooksMatch(
-				scrapedCurrentBooks.map(book => book.id),
+				books.map(book => book.id),
 				secondScrape.map(book => book.id)
 			)
 		) {
@@ -36,15 +57,14 @@ export async function handleUser(user: UserWithBook, client: Client): Promise<Pu
 		throw e;
 	}
 
-	//scrape finished books
-	let scrapedFinishedBooks: SimpleBook[] = [];
+	let scrapedFinishedBooks: SimpleBook[];
 	try {
-		scrapedFinishedBooks = await scrapeFinishedBooks(user);
-		const secondScrape = await scrapeFinishedBooks(user);
+		scrapedFinishedBooks = await scrapePageBooks(getFinishedReadingShelfURL(user), user, page);
+		const secondScrape = await scrapePageBooks(getFinishedReadingShelfURL(user), user, page);
 		if (
 			!doScrapedBooksMatch(
-				scrapedFinishedBooks.map(b => b.id),
-				secondScrape.map(b => b.id)
+				scrapedFinishedBooks.map(book => book.id),
+				secondScrape.map(book => book.id)
 			)
 		) {
 			console.error('Finished books scrape returned different results, skipping user');
@@ -56,23 +76,18 @@ export async function handleUser(user: UserWithBook, client: Client): Promise<Pu
 		throw e;
 	}
 
-	//compare scraped current books to DB books
-	const finishedBooks = userDbBooks.filter(
-		dbBook => !scrapedCurrentBooks.map(currentBook => currentBook.id).includes(dbBook.id)
-	);
-	const newBooks = scrapedCurrentBooks.filter(scrapedBook => !userDbBooks.map(db => db.id).includes(scrapedBook.id));
+	const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
+	const newBooks = books.filter(book => !dbBooks.map(db => db.id).includes(book.id));
 
-	const handlePublishNewBooks = async () => {
-		//if new books, handle
+	let handlePublishStartedBooks = async () => {
 		if (newBooks.length > 0) {
-			await publishStartedBooks(newBooks, userDbBooks, user, user.isFirstLookup, client, BASE_BOOK_URL);
+			await publishStartedBooks(newBooks, dbBooks, user, user.isFirstLookup, client, BASE_BOOK_URL);
 		}
 	}
 
-	const handlePublishFinishedBooks = async () => {
-		//if missing books and missing books are on finished list, handle
+	let handlePublishFinishedBooks = async () => {
 		if (finishedBooks.length > 0) {
-			await publishFinishedBooks(finishedBooks, scrapedFinishedBooks, client, user, BASE_BOOK_URL);
+			await publishFinishedBooks(finishedBooks, scrapedFinishedBooks, client, user, BASE_BOOK_URL)
 		}
 	}
 
@@ -88,84 +103,125 @@ export async function handleUser(user: UserWithBook, client: Client): Promise<Pu
 	}
 
 	return {
-		booksCount: scrapedCurrentBooks.length,
-		handlePublishFinishedBooks,
-		handlePublishStartedBooks: handlePublishNewBooks
-	}
+		booksCount: books.length,
+		handlePublishStartedBooks,
+		handlePublishFinishedBooks
+	};
 }
 
-async function scrapeCurrentBooks(user: UserWithBook) {
-	const fetchRes = await fetchCurrentlyReadingPage(user.dataSourceUserId);
-	const fetchedBooks = await scrapeBookTable(fetchRes);
-	if (fetchedBooks) {
-		return fetchedBooks;
-	}
-	return [];
+export async function scrapeCurrentPage(user: UserWithBook, page: Page) {
+	return scrapePageBooks(getCurrentReadingShelfURL(user), user, page);
 }
 
-async function scrapeFinishedBooks(user: UserWithBook) {
-	const fetchRes = await fetchFinishedReadingPage(user.dataSourceUserId);
-	if (fetchRes.status !== 200) {
-		throw new Error(`Fetch status returned error: ${fetchRes.status}: ${fetchRes.statusText}`);
-	}
-	const fetchedBooks = await scrapeBookTable(fetchRes);
-	if (fetchedBooks) {
-		return fetchedBooks;
-	}
-	return [];
+export async function scrapeFinishedPage(user: UserWithBook, page: Page) {
+	return scrapePageBooks(getFinishedReadingShelfURL(user), user, page);
 }
 
-async function scrapeBookTable(fetchRes: Response): Promise<SimpleBook[]> {
-	const scrapedBooks: SimpleBook[] = [];
-	const currentlyReadingBody = await fetchRes.text();
-
-	if (!currentlyReadingBody) {
-		throw new Error('Response body was empty!');
+export async function handleUsersBooks(user: UserWithBook, result: UserResult, client: Client) {
+	const dbBooks = user.books;
+	if (
+		!doScrapedBooksMatch(
+			result.currentResult1.map(book => book.id),
+			result.currentResult2.map(book => book.id)
+		)
+	) {
+		console.error(`${user.dataSourceUserId} - Current books scrape returned different results, skipping user`);
+		return;
 	}
 
-	const $ = cheerio.load(currentlyReadingBody);
+	if (
+		!doScrapedBooksMatch(
+			result.finishedResult1.map(book => book.id),
+			result.finishedResult2.map(book => book.id)
+		)
+	) {
+		console.error(`${user.dataSourceUserId} - Finished books scrape returned different results, skipping user`);
+		return;
+	}
+	const books = result.currentResult1;
+	const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
+	const newBooks = books.filter(book => !dbBooks.map(db => db.id).includes(book.id));
 
-	const doesTableExist = $('#books')?.length > 0;
-	if (!doesTableExist) {
-		throw new Error('Books table does not exist! Is Goodreads under maintenance?');
+	let handlePublishStartedBooks = async () => {
+		if (newBooks.length > 0) {
+			await publishStartedBooks(newBooks, dbBooks, user, user.isFirstLookup, client, BASE_BOOK_URL);
+		}
 	}
 
-	const bookTableRows = $(`${BOOK_TABLE_EL_ID} > tr`);
+	let handlePublishFinishedBooks = async () => {
+		if (finishedBooks.length > 0) {
+			await publishFinishedBooks(finishedBooks, result.finishedResult1, client, user, BASE_BOOK_URL)
+		}
+	}
 
-	if (bookTableRows) {
-		bookTableRows.each((i, bookTableRow) => {
-			const titleEl = $('.title > .value > a', bookTableRow);
-			const title = $(titleEl).attr('title')!.toString().trim();
-			const idEl = $('.title > .value > a', bookTableRow);
-			const href = $(idEl).attr('href')!.toString().trim();
-			const id = BOOK_ID_REGEX.exec(href);
-			if (id === null) {
-				console.error('Error parsing href for ID');
-				return;
+	if (user.isFirstLookup) {
+		await prisma.user.update({
+			where: {
+				id: user.id
+			},
+			data: {
+				isFirstLookup: false
 			}
-			const imgUrl = $('.cover > div > div > a > img', bookTableRow).attr('src');
-			const resizedUrl = imgUrl?.substring(0, imgUrl.length - 11) + '.jpg';
-			const book: SimpleBook = {
-				title,
-				id: id[0],
-			};
-			if (resizedUrl) {
-				book.imgUrl = resizedUrl;
-			}
-			scrapedBooks.push(book);
 		});
 	}
+
+	return {
+		booksCount: books.length,
+		handlePublishStartedBooks,
+		handlePublishFinishedBooks
+	};
+}
+
+async function scrapePageBooks(url: string, user: User, page: Page) {
+	const scrapedBooks: SimpleBook[] = [];
+
+	await page.goto(`${url}`);
+	console.log(`${user.dataSourceUserId} - Page navigated to url: ${page.url()}`);
+	if (page.url() !== `${url}`) {
+		throw new Error(`${user.dataSourceUserId} - Page URL ${page.url()} does not match expected URL`);
+	}
+	await page.waitForSelector('.mainContent');
+	const readBookPanes = await page.$$('#booksBody');
+	if (readBookPanes === undefined || readBookPanes === null) {
+		throw new Error(`Error getting read-book-panes, ${readBookPanes}`);
+	} else if (readBookPanes.length === 0) {
+		console.log('${user.userId} - Book panes return null, no current books found');
+		return scrapedBooks;
+	}
+
+	//td.field.cover > div > div > a
+	const bookRows = await page.$$('#booksBody > tr');
+	console.log(`${user.dataSourceUserId} - Found ${bookRows.length} book pane(s)`);
+	for (const bookRow of bookRows) {
+		const [bookShortUrl, bookTitle] = await bookRow.$eval('td.field.title > div > a', (a) => [a.getAttribute('href'), a.textContent]);
+		const cleanTitle = bookTitle?.replace(/^\n\s+/, '').replace(/\n$/, '').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+		const bookShort = bookShortUrl?.match(/\/book\/show\/(\d+)/);
+		const bookId = bookShort?.[1];
+
+		let coverUrl = await bookRow.$eval('td.field.cover > div > div > a > img', img => img.getAttribute('src'));
+		if (coverUrl?.includes('_SY75_') || coverUrl?.includes('_SX50_')) {
+			coverUrl = coverUrl.substring(0, coverUrl.length - 11) + '.jpg';
+		} else if (coverUrl?.includes('_SX50_SY75_')) {
+			coverUrl = coverUrl.substring(0, coverUrl.length - 16) + '.jpg';
+		}
+
+		if (bookId && cleanTitle && coverUrl) {
+			scrapedBooks.push({
+				id: bookId,
+				title: cleanTitle,
+				imgUrl: coverUrl,
+				user: user.id
+			});
+		}
+	}
+
 	return scrapedBooks;
 }
 
-async function fetchCurrentlyReadingPage(userId: string) {
-	const url = `${SHELF_BEGIN_URL}${userId}${CURRENTLY_READING_SHELF_END}`;
-	console.log('goto current url', url);
-	return await fetch(url);
+function getCurrentReadingShelfURL(user: UserWithBook) {
+	return `${SHELF_BEGIN_URL}${user.dataSourceUserId}${CURRENTLY_READING_SHELF_END}`
 }
 
-async function fetchFinishedReadingPage(userId: string) {
-	const url = `${SHELF_BEGIN_URL}${userId}${FINISHED_READING_SHELF_END}`;
-	console.log('goto current url', url);
-	return await fetch(url);
+function getFinishedReadingShelfURL(user: UserWithBook) {
+	return `${SHELF_BEGIN_URL}${user.dataSourceUserId}${FINISHED_READING_SHELF_END}`
 }

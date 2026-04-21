@@ -27,6 +27,7 @@ export type UserResult = {
 
 export async function scrapeBooks(client: Client) {
 	let isStorygraphSignedIn = false;
+	let isGoodreadsSignedIn = false;
 	let isCloudflareCaptchaEnabled = await isCloudflareConfigEnabled();
 	const isStorygraphScraperEnabled = await isScraperEnabled(DataSourceCode.STORYGRAPH);
 	const isGoodreadsScraperEnabled = await isScraperEnabled(DataSourceCode.GOODREADS);
@@ -39,26 +40,42 @@ export async function scrapeBooks(client: Client) {
 
 	let browser: Browser | null = null;
 
-	if (isStorygraphScraperEnabled) {
+	if (isStorygraphScraperEnabled || isGoodreadsScraperEnabled) {
 		browser = await puppeteer.launch({
 			headless: false,
 			defaultViewport: {
 				height: 889,
-				width: 625
+				width: 1268
 			},
 			args: ['--disable-blink-features=AutomationControlled']
 		});
 		let [page] = await browser.pages();
 		const hasStorygraphUsers = users.some(user => user.dataSourceCode === DataSourceCode.STORYGRAPH);
+		const hasGoodreadsUsers = users.some(user => user.dataSourceCode === DataSourceCode.GOODREADS);
 
 		if (hasStorygraphUsers) {
 			try {
-				await storygraphScraper.signin(page, isCloudflareCaptchaEnabled);
+				const storyPage = await browser.newPage();
+				await storygraphScraper.signin(storyPage, isCloudflareCaptchaEnabled);
 				isStorygraphSignedIn = true;
+				await storyPage.close();
 			} catch (e) {
 				console.log('Error occurred when signing in to Storygraph.');
 				console.log(e);
 				await sendAdminMessage(`Error occurred when signing in to Storygraph:\n ${JSON.stringify(e)}`, client);
+			}
+		}
+
+		if (hasGoodreadsUsers) {
+			try {
+				const goodreadPage = await browser.newPage();
+				await goodreadsScraper.signin(goodreadPage, false);
+				isGoodreadsSignedIn = true;
+				await goodreadPage.close();
+			} catch (e) {
+				console.log('Error occurred when signing in to Goodreads.');
+				console.log(e);
+				await sendAdminMessage(`Error occurred when signing in to Goodreads:\n ${JSON.stringify(e)}`, client);
 			}
 		}
 	}
@@ -81,13 +98,13 @@ export async function scrapeBooks(client: Client) {
 	
 	const userPageMap = new Map<string, Page>();
 	for (const user of users) {
-		if (user.dataSourceCode === DataSourceCode.STORYGRAPH && browser) {
+		if (browser) {
 			const page = await browser.newPage();
 			userPageMap.set(user.id, page);
 		}
 	}
 
-	let results = await Promise.all(users.map(async (user) => fetchUserCurrentBooks(user, client, userPageMap, isStorygraphScraperEnabled, isStorygraphSignedIn, incrementStorygraphErrorCount, incrementGoodreadsErrorCount)));
+	let results = await Promise.all(users.map(async (user) => fetchUserCurrentBooks(user, client, userPageMap, isStorygraphScraperEnabled, isStorygraphSignedIn, isGoodreadsScraperEnabled, isGoodreadsSignedIn, incrementStorygraphErrorCount, incrementGoodreadsErrorCount)));
 	results.forEach(result => {
 		if (result) {
 			const userResult = userResults.get(result.userId)!;
@@ -95,7 +112,7 @@ export async function scrapeBooks(client: Client) {
 		}
 	});
 
-	results = await Promise.all(users.map(async (user) => fetchUserFinishedBooks(user, client, userPageMap, isStorygraphScraperEnabled, isStorygraphSignedIn, incrementStorygraphErrorCount, incrementGoodreadsErrorCount)));
+	results = await Promise.all(users.map(async (user) => fetchUserFinishedBooks(user, client, userPageMap, isStorygraphScraperEnabled, isStorygraphSignedIn, isGoodreadsScraperEnabled, isGoodreadsSignedIn, incrementStorygraphErrorCount, incrementGoodreadsErrorCount)));
 	results.forEach(result => {
 		if (result) {
 			const userResult = userResults.get(result.userId)!;
@@ -103,7 +120,7 @@ export async function scrapeBooks(client: Client) {
 		}
 	});
 
-	results = await Promise.all(users.map(async (user) => fetchUserCurrentBooks(user, client, userPageMap, isStorygraphScraperEnabled, isStorygraphSignedIn, incrementStorygraphErrorCount, incrementGoodreadsErrorCount)));
+	results = await Promise.all(users.map(async (user) => fetchUserCurrentBooks(user, client, userPageMap, isStorygraphScraperEnabled, isStorygraphSignedIn, isGoodreadsScraperEnabled, isGoodreadsSignedIn, incrementStorygraphErrorCount, incrementGoodreadsErrorCount)));
 	results.forEach(result => {
 		if (result) {
 			const userResult = userResults.get(result.userId)!;
@@ -111,7 +128,7 @@ export async function scrapeBooks(client: Client) {
 		}
 	});
 
-	results = await Promise.all(users.map(async (user) => fetchUserFinishedBooks(user, client, userPageMap, isStorygraphScraperEnabled, isStorygraphSignedIn, incrementStorygraphErrorCount, incrementGoodreadsErrorCount)));
+	results = await Promise.all(users.map(async (user) => fetchUserFinishedBooks(user, client, userPageMap, isStorygraphScraperEnabled, isStorygraphSignedIn, isGoodreadsScraperEnabled, isGoodreadsSignedIn, incrementStorygraphErrorCount, incrementGoodreadsErrorCount)));
 	results.forEach(result => {
 		if (result) {
 			const userResult = userResults.get(result.userId)!;
@@ -124,6 +141,9 @@ export async function scrapeBooks(client: Client) {
 		if (isStorygraphScraperEnabled && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
 			const result = userResults.get(user.id)!;
 			storygraphActions.push(await storygraphScraper.handleUsersBooks(user, result, client));
+		} else if (isGoodreadsScraperEnabled && user.dataSourceCode === DataSourceCode.GOODREADS && isGoodreadsSignedIn) {
+			const result = userResults.get(user.id)!;
+			goodreadsActions.push(await goodreadsScraper.handleUsersBooks(user, result, client));
 		}
 	}
 
@@ -175,31 +195,56 @@ export async function scrapeBooks(client: Client) {
 	}
 }
 
-async function fetchUserCurrentBooks(user: UserWithBook, client: Client, userPageMap: Map<string, Page>, isStorygraphScraperEnabled: boolean, isStorygraphSignedIn: boolean, incrementStorygraphErrorCount: () => number, incrementGoodreadsErrorCount: () => number) {
+async function fetchUserCurrentBooks(
+	user: UserWithBook, 
+	client: Client, 
+	userPageMap: Map<string, Page>, 
+	isStorygraphScraperEnabled: boolean, 
+	isStorygraphSignedIn: boolean,
+	isGoodreadsScraperEnabled: boolean, 
+	isGoodreadsSignedIn: boolean,
+	incrementStorygraphErrorCount: () => number, 
+	incrementGoodreadsErrorCount: () => number) {
 	try {
-			if (isStorygraphScraperEnabled && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
-				const page = userPageMap.get(user.id);
-				if (!page) throw new Error(`Page not found for user ${user}`);
-				const result = await storygraphScraper.scrapeCurrentPage(user, page);
-				return {
-					userId: user.id,
-					result
-				};
-			} 
-		} catch (e: any) {
-			if (e.name !== 'TimeoutError' && Object.keys(e).length > 0) {
-				handleError(user, e, client);
-			}
-			if (user.dataSourceCode === DataSourceCode.STORYGRAPH) {
-				incrementStorygraphErrorCount();
-			}
-			if (user.dataSourceCode === DataSourceCode.GOODREADS) {
-				incrementGoodreadsErrorCount();
-			}
+		if (isStorygraphScraperEnabled && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
+			const page = userPageMap.get(user.id);
+			if (!page) throw new Error(`Page not found for user ${user}`);
+			const result = await storygraphScraper.scrapeCurrentPage(user, page);
+			return {
+				userId: user.id,
+				result
+			};
+		} else if (isGoodreadsScraperEnabled && user.dataSourceCode === DataSourceCode.GOODREADS && isGoodreadsSignedIn) {
+			const page = userPageMap.get(user.id);
+			if (!page) throw new Error(`Page not found for user ${user}`);
+			const result = await goodreadsScraper.scrapeCurrentPage(user, page);
+			return {
+				userId: user.id,
+				result
+			};
 		}
+		} catch (e: any) {
+		if (e.name !== 'TimeoutError' && Object.keys(e).length > 0) {
+			handleError(user, e, client);
+		}
+		if (user.dataSourceCode === DataSourceCode.STORYGRAPH) {
+			incrementStorygraphErrorCount();
+		}
+		if (user.dataSourceCode === DataSourceCode.GOODREADS) {
+			incrementGoodreadsErrorCount();
+		}
+	}
 }
 
-async function fetchUserFinishedBooks(user: UserWithBook, client: Client, userPageMap: Map<string, Page>, isStorygraphScraperEnabled: boolean, isStorygraphSignedIn: boolean, incrementStorygraphErrorCount: () => number, incrementGoodreadsErrorCount: () => number) {
+async function fetchUserFinishedBooks(user: UserWithBook, 
+	client: Client, 
+	userPageMap: Map<string, Page>, 
+	isStorygraphScraperEnabled: boolean, 
+	isStorygraphSignedIn: boolean,
+	isGoodreadsScraperEnabled: boolean, 
+	isGoodreadsSignedIn: boolean,
+	incrementStorygraphErrorCount: () => number, 
+	incrementGoodreadsErrorCount: () => number) {
 	try {
 			if (isStorygraphScraperEnabled && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
 				const page = userPageMap.get(user.id);
@@ -209,7 +254,15 @@ async function fetchUserFinishedBooks(user: UserWithBook, client: Client, userPa
 					userId: user.id,
 					result
 				};
-			} 
+			} else if (isGoodreadsScraperEnabled && user.dataSourceCode === DataSourceCode.GOODREADS && isGoodreadsSignedIn) {
+			const page = userPageMap.get(user.id);
+			if (!page) throw new Error(`Page not found for user ${user}`);
+			const result = await goodreadsScraper.scrapeFinishedPage(user, page);
+			return {
+				userId: user.id,
+				result
+			};
+		}
 		} catch (e: any) {
 			if (e.name !== 'TimeoutError' && Object.keys(e).length > 0) {
 				handleError(user, e, client);
