@@ -220,7 +220,7 @@ async function scrapePageBooks(url: string, user: User, page: Page) {
 			});
 		}
 	}
-
+	console.log(`${user.dataSourceUserId} Finished scraping, found ${scrapedBooks.length} books`);
 	return scrapedBooks;
 }
 
