@@ -133,6 +133,12 @@ export async function handleUsersBooks(user: UserWithBook, result: UserResult, c
 	const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
 	const newBooks = books.filter(book => !dbBooks.map(db => db.id).includes(book.id));
 
+	if (finishedBooks.some(finishedBook => result.currentResult1.map(current => current.id).includes(finishedBook.id))) {
+		console.error(`${user.dataSourceUserId} - Finished books contain current books, something went wrong. Skipping user`);
+		console.log(`${user.dataSourceUserId} - Invalid result:`, result);
+		return;
+	}
+
 	let handlePublishStartedBooks = async () => {
 		if (newBooks.length > 0) {
 			await publishStartedBooks(newBooks, dbBooks, user, user.isFirstLookup, client, BASE_BOOK_URL);

@@ -3,8 +3,6 @@ import { Client } from 'discord.js';
 import { UserWithBook } from '../models/UserWithBooks';
 import { prisma } from '../services/prisma';
 import { doScrapedBooksMatch, PublishAction, publishFinishedBooks, publishStartedBooks, SimpleBook, UserResult } from './scraper';
-import fetchCookie from 'fetch-cookie';
-import { CookieJar } from 'tough-cookie';
 import { Page } from 'puppeteer';
 import { User } from '@prisma/client';
 
@@ -34,6 +32,7 @@ export async function signin(page: Page, CLOUDFLARE_CAPTCHA_ENABLED: boolean) {
 	await page.type(signin_email_id, SIGNIN_EMAIL);
 	await page.type(signin_password_id, SIGNIN_PASS!);
 	await Promise.all([page.click(signin_submit_id), page.waitForNavigation()]);
+	await page.waitForSelector('.gr-mainContentContainer');
 }
 
 export async function handleUser(user: UserWithBook, client: Client, page: Page): Promise<PublishAction | undefined> {
@@ -138,9 +137,16 @@ export async function handleUsersBooks(user: UserWithBook, result: UserResult, c
 		console.error(`${user.dataSourceUserId} - Finished books scrape returned different results, skipping user`);
 		return;
 	}
+
 	const books = result.currentResult1;
 	const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
 	const newBooks = books.filter(book => !dbBooks.map(db => db.id).includes(book.id));
+
+	if (finishedBooks.some(finishedBook => result.currentResult1.map(current => current.id).includes(finishedBook.id))) {
+		console.error(`${user.dataSourceUserId} - Finished books contain current books, something went wrong. Skipping user`);
+		console.log(`${user.dataSourceUserId} - Invalid result:`, result);
+		return;
+	}
 
 	let handlePublishStartedBooks = async () => {
 		if (newBooks.length > 0) {
