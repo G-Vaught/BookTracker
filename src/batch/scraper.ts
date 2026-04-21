@@ -49,11 +49,10 @@ export async function scrapeBooks(client: Client) {
 			},
 			args: ['--disable-blink-features=AutomationControlled']
 		});
-		let [page] = await browser.pages();
 		const hasStorygraphUsers = users.some(user => user.dataSourceCode === DataSourceCode.STORYGRAPH);
 		const hasGoodreadsUsers = users.some(user => user.dataSourceCode === DataSourceCode.GOODREADS);
 
-		if (hasStorygraphUsers) {
+		if (hasStorygraphUsers && isStorygraphScraperEnabled) {
 			try {
 				const storyPage = await browser.newPage();
 				await storygraphScraper.signin(storyPage, isCloudflareCaptchaEnabled);
@@ -66,7 +65,7 @@ export async function scrapeBooks(client: Client) {
 			}
 		}
 
-		if (hasGoodreadsUsers) {
+		if (hasGoodreadsUsers && isGoodreadsScraperEnabled) {
 			try {
 				const goodreadPage = await browser.newPage();
 				await goodreadsScraper.signin(goodreadPage, false);
