@@ -4,6 +4,8 @@ import { DataSourceCode, DataSourceCodeOptions } from '../models/DataSourceCode'
 import { prisma } from '../services/prisma';
 import { Command } from './command.model';
 import { isCloudflareConfigEnabled, isScraperEnabled, toggleScraper } from '../services/configService';
+import { exec } from 'child_process';
+import path from 'path';
 
 export async function initCommands() {
 	const rest = new REST({
@@ -305,6 +307,48 @@ export const toggleIsCloudflareCaptchaEnabled: Command = {
 	}
 }
 
+export const PullAndRestart: Command = {
+	name: 'pullrestart',
+	builder: new SlashCommandBuilder()
+		.setName('pullrestart')
+		.setDescription('Git Pull and Restart'),
+	handler: async (interaction: ChatInputCommandInteraction) => {
+		if (interaction.user.id !== process.env.EKRON_USER_ID) {
+			interaction.reply('You do not have permissions to use this command');
+			return;
+		}
+
+		console.log('Starting Pull and Restart');
+		const scriptPath = path.join(process.cwd(), 'src', 'Update_RestartBot.sh');
+		const result = await new Promise((res, rej) => {
+			exec(
+				scriptPath,
+				{timeout: 60000},
+				(error, stdout, stderr) => {
+					if (error) {
+						console.error('Error Updating and Restarting: ', error);
+						console.error('Stderr: ', stderr);
+
+						rej(false);
+						return;
+					}
+
+					console.log('Update and Restart successful');
+					console.log(stdout);
+					res(true);
+				}
+			)
+		});
+
+		if (result) {
+			interaction.reply('Success');
+		} else {
+			interaction.reply('Failed');
+		}
+
+	}
+}
+
 export const COMMANDS: Command[] = [
 	addUserCommand,
 	removeUserCommand,
@@ -315,5 +359,6 @@ export const COMMANDS: Command[] = [
 	toggleStorygraphScraperCommand,
 	toggleGoodreadsScraperCommand,
 	currentConfigsCommand,
-	toggleIsCloudflareCaptchaEnabled
+	toggleIsCloudflareCaptchaEnabled,
+	PullAndRestart
 ];

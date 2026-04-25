@@ -11,7 +11,11 @@ export function runBatch(client: Client) {
 		},
 		async () => {
 			console.log('Starting batch at', getCurrentDateTime());
-			await scrapeBooks(client);
+			try {
+				await scrapeBooks(client);
+			} catch (e) {
+				console.error("Error during batch run: ", e);
+			}
 			console.log('Finished batch at', getCurrentDateTime());
 		}
 	);
