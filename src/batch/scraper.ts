@@ -317,7 +317,8 @@ export async function publishStartedBooks(
 	user: User,
 	isNewUser: boolean,
 	client: Client,
-	baseUrl: string
+	baseUrl: string,
+	publishBooks = true
 ) {
 	console.log('New Books', newBooks);
 	for (const newBook of newBooks) {
@@ -332,9 +333,13 @@ export async function publishStartedBooks(
 		//Skip book if title matches current book, likely version change
 		if (!isNewUser && !currentBooks.some(currentBook => newBook.title === currentBook.title)) {
 			let msg = `${getMentionUserText(user.userId)} has started **[${newBook.title}](${baseUrl}/${newDbBook.id})**`;
-			await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(msg);
-			if (newBook.imgUrl) {
-				await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(newBook.imgUrl);
+			if (publishBooks) {
+				await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(msg);
+				if (newBook.imgUrl) {
+					await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(newBook.imgUrl);
+				}
+			} else {
+				await sendAdminMessage(msg, client);
 			}
 		}
 	}
@@ -345,7 +350,8 @@ export async function publishFinishedBooks(
 	scrapedFinishedBooks: SimpleBook[],
 	client: Client,
 	user: User,
-	baseUrl: string
+	baseUrl: string,
+	publishBooks = true
 ) {
 	console.log('Finished Books', finishedBooks);
 
@@ -362,10 +368,14 @@ export async function publishFinishedBooks(
 		//Only show message if user has marked book as 'finished'
 		if (scrapedFinishedBooks.map(book => book.id).includes(finishedBook.id)) {
 			let msg = `${getMentionUserText(user.userId)} has finished **[${finishedBook.title}](${baseUrl}/${finishedBook.id})**`;
-			await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(msg);
-			const imgUrl = scrapedFinishedBooks.find(book => book.id === finishedBook.id)?.imgUrl;
-			if (imgUrl) {
-				await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(imgUrl);
+			if (publishBooks) {
+				await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(msg);
+				const imgUrl = scrapedFinishedBooks.find(book => book.id === finishedBook.id)?.imgUrl;
+				if (imgUrl) {
+					await (client.channels.cache.get(process.env.CHANNEL_ID!) as TextChannel).send(imgUrl);
+				}
+			} else {
+				await sendAdminMessage(msg, client);
 			}
 		}
 	}

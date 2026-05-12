@@ -150,13 +150,13 @@ export async function handleUsersBooks(user: UserWithBook, result: UserResult, c
 
 	let handlePublishStartedBooks = async () => {
 		if (newBooks.length > 0) {
-			await publishStartedBooks(newBooks, dbBooks, user, user.isFirstLookup, client, BASE_BOOK_URL);
+			await publishStartedBooks(newBooks, dbBooks, user, user.isFirstLookup, client, BASE_BOOK_URL, false);
 		}
 	}
 
 	let handlePublishFinishedBooks = async () => {
 		if (finishedBooks.length > 0) {
-			await publishFinishedBooks(finishedBooks, result.finishedResult1, client, user, BASE_BOOK_URL)
+			await publishFinishedBooks(finishedBooks, result.finishedResult1, client, user, BASE_BOOK_URL, false)
 		}
 	}
 
