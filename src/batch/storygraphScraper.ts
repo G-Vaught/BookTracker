@@ -130,7 +130,11 @@ export async function handleUsersBooks(user: UserWithBook, result: UserResult, c
 		return;
 	}
 	const books = result.currentResult1;
-	const finishedBooks = dbBooks.filter(dbBook => !books.map(book => book.id).includes(dbBook.id));
+	const finishedBooks = dbBooks.filter(
+		dbBook =>
+			!result.currentResult1.map(book => book.id).includes(dbBook.id) &&
+			result.finishedResult1.some(resultBook => resultBook.id === dbBook.id)
+	);
 	const newBooks = books.filter(book => !dbBooks.map(db => db.id).includes(book.id));
 
 	if (finishedBooks.some(finishedBook => result.currentResult1.map(current => current.id).includes(finishedBook.id))) {
@@ -175,6 +179,7 @@ async function scrapePageBooks(url: string, user: User, page: Page) {
 	await page.goto(`${url}/${user.dataSourceUserId}`);
 	console.log(`${user.dataSourceUserId} - Page navigated to url: ${page.url()}`);
 	if (page.url() !== `${url}/${user.dataSourceUserId}`) {
+		console.log(`${user.dataSourceUserId} - Page URL ${page.url()} does not match expected URL`);
 		throw new Error(`${user.dataSourceUserId} - Page URL ${page.url()} does not match expected URL`);
 	}
 	await page.waitForSelector('main');
