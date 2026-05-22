@@ -194,18 +194,23 @@ export const resetAllUsersCommand: Command = {
 
 export const listUsersAndBooks: Command = {
 	name: 'listusers',
-	builder: new SlashCommandBuilder().setName('listusers').setDescription('List users and their current books'),
+	builder: new SlashCommandBuilder().setName('listusers').setDescription('List users and their CURRENT books (not finished)'),
 	handler: async (interaction: ChatInputCommandInteraction) => {
 		let fullMessage = '```';
 		const users = await prisma.user.findMany();
 		for (const user of users) {
 			const books = await prisma.book.findMany({
 				where: {
-					userId: user.id
+					userId: user.id,
+					status: 'CURRENT'
 				}
 			});
 			let msg = `${user.dataSourceUserId} - ${user.dataSourceCode}: \n`;
-			books.forEach(book => (msg += `\t${book.title}\n`));
+			if (books.length > 0) {
+				books.forEach(book => (msg += `\t${book.title}\n`));
+			} else {
+				msg += `\t(currently reading no books)\n`;
+			}
 			fullMessage += msg;
 		}
 		fullMessage += '```';
@@ -245,9 +250,9 @@ export const resetUser: Command = {
 			}
 		});
 
-		console.log(`Reset ${user.username}\'s books`);
+		console.log(`Reset ${user.username}'s books`);
 
-		interaction.reply(`Reset ${user.username}\'s books`);
+		interaction.reply(`Reset ${user.username}'s books`);
 	}
 }
 
@@ -318,6 +323,7 @@ export const PullAndRestart: Command = {
 			return;
 		}
 
+		interaction.reply('Starting Pull and Restart');
 		console.log('Starting Pull and Restart');
 		const scriptPath = path.join(process.cwd(), 'src', 'Update_RestartBot.sh');
 		const result = await new Promise((res, rej) => {
