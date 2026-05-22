@@ -201,8 +201,7 @@ export const listUsersAndBooks: Command = {
 		for (const user of users) {
 			const books = await prisma.book.findMany({
 				where: {
-					userId: user.id,
-					status: 'CURRENT'
+					userId: user.id
 				}
 			});
 			let msg = `${user.dataSourceUserId} - ${user.dataSourceCode}: \n`;
