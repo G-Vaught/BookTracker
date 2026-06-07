@@ -43,4 +43,17 @@ client.on('interactionCreate', async interaction => {
 	}
 });
 
+client.on('error', error => {
+	console.error("Error event: ", error);
+});
+
+client.on('shardError', error => {
+	console.error('Shard error event: ', error);
+});
+
+process.on('uncaughtException', error => {
+	console.error("Uncaught exception event: ", error);
+	//Maybe try to reconnect here, or restart pm2 process
+});
+
 client.login(token);
