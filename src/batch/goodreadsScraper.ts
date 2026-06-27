@@ -10,7 +10,7 @@ const SIGNIN_URL = 'https://www.goodreads.com/user/sign_in';
 
 const SHELF_BEGIN_URL = 'https://www.goodreads.com/review/list/';
 const CURRENTLY_READING_SHELF_END = '?shelf=currently-reading';
-const FINISHED_READING_SHELF_END = '?shelf=read';
+const FINISHED_READING_SHELF_END = '?shelf=read&sort=date_read';
 const BASE_BOOK_URL = 'https://www.goodreads.com/book/show';
 
 const GOTO_SIGNIN_BTN = '#choices > div > a:nth-child(4) > button'
