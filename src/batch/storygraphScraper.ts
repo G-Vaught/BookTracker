@@ -202,7 +202,12 @@ async function scrapePageBooks(url: string, user: User, page: Page) {
 			el => el.querySelector('.book-title-author-and-series h3 a')?.textContent,
 			bookPane
 		)) as string;
+		const bookSeries = await bookPane.$$eval('.hidden .book-title-author-and-series > p > a', series => series.map(s => s.textContent).join(' '));
 		const coverUrl = await bookPane.evaluate(el => el.querySelector('img')?.src) || '';
+		let bookTitleSeries = bookTitle;
+		if (bookSeries && bookSeries.length > 0) {
+			bookTitleSeries = `${bookTitle} (${bookSeries})`
+		}
 		scrapedBooks.push({
 			id: bookId!,
 			title: bookTitle,
