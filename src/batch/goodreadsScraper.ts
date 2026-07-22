@@ -31,8 +31,8 @@ export async function signin(page: Page, CLOUDFLARE_CAPTCHA_ENABLED: boolean) {
 	await page.waitForSelector(signin_email_id);
 	await page.type(signin_email_id, SIGNIN_EMAIL);
 	await page.type(signin_password_id, SIGNIN_PASS!);
-	await Promise.all([page.click(signin_submit_id), page.waitForNavigation()]);
-	await page.waitForSelector('.gr-mainContentContainer');
+	await Promise.all([page.click(signin_submit_id), page.waitForNavigation({waitUntil: 'networkidle0'})]);
+	await page.waitForSelector('main');
 }
 
 export async function handleUser(user: UserWithBook, client: Client, page: Page): Promise<PublishAction | undefined> {
