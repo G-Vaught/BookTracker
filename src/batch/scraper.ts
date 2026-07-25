@@ -47,7 +47,8 @@ export async function scrapeBooks(client: Client) {
 				height: 889,
 				width: 1268
 			},
-			args: ['--disable-blink-features=AutomationControlled']
+			args: ['--disable-blink-features=AutomationControlled'],
+			userDataDir: './chrome-profile'
 		});
 		const hasStorygraphUsers = users.some(user => user.dataSourceCode === DataSourceCode.STORYGRAPH);
 		const hasGoodreadsUsers = users.some(user => user.dataSourceCode === DataSourceCode.GOODREADS);

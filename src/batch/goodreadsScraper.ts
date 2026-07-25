@@ -27,12 +27,17 @@ export async function signin(page: Page, CLOUDFLARE_CAPTCHA_ENABLED: boolean) {
 	if (CLOUDFLARE_CAPTCHA_ENABLED) {
 		await page.waitForResponse(SIGNIN_URL);
 	}
+	console.log('page url', page.url());
+	if (page.url() === 'https://www.goodreads.com/') {
+		//already signed in
+		return;
+	}
 	await page.click(GOTO_SIGNIN_BTN);
 	await page.waitForSelector(signin_email_id);
 	await page.type(signin_email_id, SIGNIN_EMAIL);
 	await page.type(signin_password_id, SIGNIN_PASS!);
+	await page.click('#auth-remember-me');
 	await Promise.all([page.click(signin_submit_id), page.waitForNavigation({waitUntil: 'networkidle0'})]);
-	await page.waitForSelector('main');
 }
 
 export async function handleUser(user: UserWithBook, client: Client, page: Page): Promise<PublishAction | undefined> {
@@ -185,13 +190,15 @@ export async function handleUsersBooks(user: UserWithBook, result: UserResult, c
 async function scrapePageBooks(url: string, user: User, page: Page) {
 	const scrapedBooks: SimpleBook[] = [];
 
-	await page.goto(`${url}`);
+	await Promise.all([
+		page.goto(`${url}`),
+		page.waitForNavigation({waitUntil: 'networkidle0'}) 
+	]);
 	console.log(`${user.dataSourceUserId} - Page navigated to url: ${page.url()}`);
 	if (page.url() !== `${url}`) {
 		console.log(`${user.dataSourceUserId} - Page URL ${page.url()} does not match expected URL`);
 		throw new Error(`${user.dataSourceUserId} - Page URL ${page.url()} does not match expected URL`);
 	}
-	await page.waitForSelector('.mainContent');
 	const readBookPanes = await page.$$('#booksBody');
 	if (readBookPanes === undefined || readBookPanes === null) {
 		throw new Error(`Error getting read-book-panes, ${readBookPanes}`);

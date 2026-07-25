@@ -133,3 +133,4 @@ dev.db
 prisma/dev.db
 package-lock.json
 prisma/dev.db-journal
+/chrome-profile

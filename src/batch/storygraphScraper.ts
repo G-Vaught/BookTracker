@@ -21,6 +21,10 @@ export async function signin(page: Page, CLOUDFLARE_CAPTCHA_ENABLED: boolean) {
 	if (CLOUDFLARE_CAPTCHA_ENABLED) {
 		await page.waitForResponse(SIGNIN_URL);
 	}
+	if (page.url() !== SIGNIN_URL) {
+		//already signed in
+		return;
+	}
 	await page.waitForSelector(signin_email_id);
 	await page.type(signin_email_id, process.env.STORYGRAPH_EMAIL!);
 	await page.type(signin_password_id, process.env.STORYGRAPH_PASSWORD!);
