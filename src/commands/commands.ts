@@ -364,22 +364,36 @@ export const ReviewBook: Command = {
 	handler: async (interaction: ChatInputCommandInteraction) => {
 		if (!interaction.isChatInputCommand) return;
 
-		const url = interaction.options.getString('url');
+		const url = interaction.options.getString('storygraphurl');
 		if (!url) {
 			await interaction.reply('Invalid URL');
 			return;
 		}
 
-		interaction.reply('Generating review...');
-
 		await interaction.deferReply();
 
-		const review = await reviewBook(url);
+		let dots = 0;
+		const interval = setInterval(async () => {
+			dots = (dots + 1) % 4;
+			try {
+				await interaction.editReply(`Generating Review${'.'.repeat(dots)}`);
+			} catch (e) {
+				//ignore
+			}
+		}, 3000);
 
-		if (review) {
+		try {
+			const review = await reviewBook(url);
+			clearInterval(interval);
+			if (review) {
 			await interaction.editReply(review)
-		} else {
-			await interaction.editReply('Unable to generate review');
+			} else {
+				await interaction.editReply('Unable to generate review');
+			}
+		} catch (e) {
+			clearInterval(interval);
+			console.log('Error fetching review', e);
+			await interaction.editReply('Error generating review!');
 		}
 	}
 }
