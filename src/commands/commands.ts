@@ -372,7 +372,7 @@ export const ReviewBook: Command = {
 
 		await interaction.deferReply();
 
-		let dots = 0;
+		let dots = 3;
 		const interval = setInterval(async () => {
 			dots = (dots + 1) % 4;
 			try {
