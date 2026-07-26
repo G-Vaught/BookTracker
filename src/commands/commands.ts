@@ -359,13 +359,13 @@ export const ReviewBook: Command = {
 	name: 'reviewbook',
 	builder: new SlashCommandBuilder()
 		.setName('reviewbook')
-		.setDescription('Generate a small review of the book')
-		.addStringOption(option => option.setName('storygraphurl').setDescription('Storygraph Url').setRequired(true)),
+		.setDescription('Generate a small review of a book')
+		.addStringOption(option => option.setName('title').setDescription('Title of the book. Will take first result').setRequired(true)),
 	handler: async (interaction: ChatInputCommandInteraction) => {
 		if (!interaction.isChatInputCommand) return;
 
-		const url = interaction.options.getString('storygraphurl');
-		if (!url) {
+		const title = interaction.options.getString('title');
+		if (!title) {
 			await interaction.reply('Invalid URL');
 			return;
 		}
@@ -383,7 +383,7 @@ export const ReviewBook: Command = {
 		}, 3000);
 
 		try {
-			const review = await reviewBook(url);
+			const review = await reviewBook(title);
 			clearInterval(interval);
 			if (review) {
 			await interaction.editReply(review)

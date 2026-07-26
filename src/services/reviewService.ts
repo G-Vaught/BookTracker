@@ -6,21 +6,21 @@ const reviewerPersonalities = [
     'thoughtful and witty'
 ]
 
-export const reviewBook = async (url: string) => {
+export const reviewBook = async (title: string) => {
     const client = new OpenAI({
         baseURL: "http://192.168.1.14:1234/v1",
         apiKey: "lm-studio"
     });
 
 
-    const [title, tags, description] = await fetchBookAndParse(url);
-    console.log(title, tags, description);
-    if (!title || !tags || !description) {
+    const [parsedTitle, tags, description] = await fetchBookAndParse(title);
+    console.log(parsedTitle, tags, description);
+    if (!parsedTitle || !tags || !description) {
         console.log('Error fetching book info for review');
         return;   
     }
 
-    const review = await fetchOpenAiReview(title, tags, description, client);
+    const review = await fetchOpenAiReview(parsedTitle, tags, description, client);
     if (review) {
         return review;
     } else {
@@ -29,7 +29,7 @@ export const reviewBook = async (url: string) => {
     }
 }
 
-const fetchBookAndParse = async (url: string): Promise<[string, string[], string]> => {
+const fetchBookAndParse = async (title: string): Promise<[string, string[], string]> => {
 
     const browser = await puppeteer.launch({
         headless: false,
@@ -44,8 +44,12 @@ const fetchBookAndParse = async (url: string): Promise<[string, string[], string
     const page = (await browser.pages()).at(0);
 
     if (page) {
-        await page.goto(url, {waitUntil: 'networkidle0'});
-        const title = await page.$eval('.book-title-author-and-series > h3', (titleEl) => titleEl.innerText);
+        await page.goto('https://app.thestorygraph.com/', {waitUntil: 'networkidle0'});
+        await page.type('input[name="search_term"]', title);
+        await page.waitForNetworkIdle();
+        await page.click('#search-all-books-dropdown > ul > li:first-child');
+        await page.waitForNetworkIdle();
+        const parsedTitle = await page.$eval('.book-title-author-and-series > h3', (titleEl) => titleEl.innerText);
         const tags = await page.$$eval('.book-page-tag-section > span', (tags) => {
             return tags.map(tag => tag.innerHTML);
         });
@@ -53,7 +57,7 @@ const fetchBookAndParse = async (url: string): Promise<[string, string[], string
         await page.click('.read-more-btn');
         const description = await page.$eval('.trix-content > div', (titleEl) => titleEl.innerText);
         browser.close();
-        return [title, tags, description];
+        return [parsedTitle, tags, description];
     }
     browser.close();
     return ['',[''], ''];
