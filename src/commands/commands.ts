@@ -6,6 +6,7 @@ import { Command } from './command.model';
 import { isCloudflareConfigEnabled, isScraperEnabled, toggleScraper } from '../services/configService';
 import { exec } from 'child_process';
 import path from 'path';
+import { reviewBook } from '../services/reviewService';
 
 export async function initCommands() {
 	const rest = new REST({
@@ -354,6 +355,35 @@ export const PullAndRestart: Command = {
 	}
 }
 
+export const ReviewBook: Command = {
+	name: 'reviewbook',
+	builder: new SlashCommandBuilder()
+		.setName('reviewbook')
+		.setDescription('Generate a small review of the book')
+		.addStringOption(option => option.setName('storygraphurl').setDescription('Storygraph Url').setRequired(true)),
+	handler: async (interaction: ChatInputCommandInteraction) => {
+		if (!interaction.isChatInputCommand) return;
+
+		const url = interaction.options.getString('url');
+		if (!url) {
+			await interaction.reply('Invalid URL');
+			return;
+		}
+
+		interaction.reply('Generating review...');
+
+		await interaction.deferReply();
+
+		const review = await reviewBook(url);
+
+		if (review) {
+			await interaction.editReply(review)
+		} else {
+			await interaction.editReply('Unable to generate review');
+		}
+	}
+}
+
 export const COMMANDS: Command[] = [
 	addUserCommand,
 	removeUserCommand,
@@ -365,5 +395,6 @@ export const COMMANDS: Command[] = [
 	toggleGoodreadsScraperCommand,
 	currentConfigsCommand,
 	toggleIsCloudflareCaptchaEnabled,
-	PullAndRestart
+	PullAndRestart,
+	ReviewBook
 ];

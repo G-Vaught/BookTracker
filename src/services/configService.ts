@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 
 const STORYGRAPH_SCRAPER = 'isStorygraphEnabled';
 const GOODREADS_SCRAPER = 'isGoodreadsEnabled';
+let OPEN_AI_URL = '"http://192.168.1.14:1234/v1';
 
 export const toggleScraper = async (scraper: DataSourceCode) => {
     if (scraper === DataSourceCode.STORYGRAPH) {
@@ -50,4 +51,20 @@ export const isCloudflareConfigEnabled = async () => {
         return captchaConfig.value === 'true';
     }
     return false;
+}
+
+export const getOpenAiUrl = async () => {
+    return await prisma.config.findFirst({where: {name: 'OpenAiUrl'}});
+}
+
+export const updateOpenAiUrl = async (url: string) => {
+    await prisma.config.update({
+        where: {
+            name: 'OpenAiUrl'
+        },
+        data: {
+            value: url
+        }
+    });
+    console.log('Update OpenAiUrl to ', url);
 }
