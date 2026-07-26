@@ -364,8 +364,8 @@ export const ReviewBook: Command = {
 	handler: async (interaction: ChatInputCommandInteraction) => {
 		if (!interaction.isChatInputCommand) return;
 
-		const title = interaction.options.getString('title');
-		if (!title) {
+		const userTitle = interaction.options.getString('title');
+		if (!userTitle) {
 			await interaction.reply('Invalid URL');
 			return;
 		}
@@ -383,10 +383,13 @@ export const ReviewBook: Command = {
 		}, 3000);
 
 		try {
-			const review = await reviewBook(title);
+			const [title, review] = await reviewBook(userTitle) || [];
 			clearInterval(interval);
-			if (review) {
-			await interaction.editReply(review)
+			if (title && review) {
+				await interaction.editReply(
+				`**${title}**
+				
+${review}`)
 			} else {
 				await interaction.editReply('Unable to generate review');
 			}

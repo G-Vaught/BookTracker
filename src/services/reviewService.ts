@@ -22,7 +22,7 @@ export const reviewBook = async (title: string) => {
 
     const review = await fetchOpenAiReview(parsedTitle, tags, description, client);
     if (review) {
-        return review;
+        return [parsedTitle, review];
     } else {
         console.log('Error fetching openai review');
         return;
@@ -55,7 +55,7 @@ const fetchBookAndParse = async (title: string): Promise<[string, string[], stri
         });
 
         await page.click('.read-more-btn');
-        const description = await page.$eval('.trix-content > div', (titleEl) => titleEl.innerText);
+        const description = await page.$$eval('.trix-content > div', (titleDivs) => titleDivs.map(titleEl => titleEl.innerText).join(''));
         browser.close();
         return [parsedTitle, tags, description];
     }
