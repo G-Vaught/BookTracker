@@ -1,14 +1,16 @@
 import OpenAI from "openai";
 import puppeteer, { Browser, Page } from 'puppeteer';
+import { getOpenAiUrl } from "./configService";
 
 const reviewerPersonalities = [
     'sarcastic without being cringy',
-    'thoughtful and witty'
+    // 'thoughtful and witty'
 ]
 
 export const reviewBook = async (title: string) => {
+    const openAiUrl = await getOpenAiUrl();
     const client = new OpenAI({
-        baseURL: "http://192.168.1.14:1234/v1",
+        baseURL: openAiUrl?.value,
         apiKey: "lm-studio"
     });
 
@@ -84,7 +86,8 @@ const fetchOpenAiReview = async (title: string, tags: string[], description: str
 
 const getReviewTemplate = (title: string, tags: string[], description: string) => {
     const randomPersonality = reviewerPersonalities[Math.floor(Math.random() * reviewerPersonalities.length)];
-    return `You are a ${randomPersonality} book reviewer. Give me a short description for this book. Do not use any special markdown characters, just plain text.
+    return `You are a ${randomPersonality} book reviewer. Give me a short review for this book. Include a rating from 0 to 10 at the end, such as 8.5/10 or 4/10. 
+    Do not use any special markdown characters, just plain text. Give scifi or fantasy higher scores, and lower scores to books such as self-help, smut, romance fantasy, or other boring books.
     Title: ${title}
     Tags: ${tags}
     Description: ${description}`;
