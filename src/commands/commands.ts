@@ -7,6 +7,7 @@ import { isCloudflareConfigEnabled, isScraperEnabled, toggleScraper } from '../s
 import { exec } from 'child_process';
 import path from 'path';
 import { reviewBook } from '../services/reviewService';
+import { resetAllUsers } from '../services/service';
 
 export async function initCommands() {
 	const rest = new REST({
@@ -181,13 +182,7 @@ export const resetAllUsersCommand: Command = {
 			return;
 		}
 
-		await prisma.book.deleteMany();
-
-		await prisma.user.updateMany({
-			data: {
-				isFirstLookup: true
-			}
-		});
+		await resetAllUsers();
 
 		interaction.reply('Reset all users.');
 	}
