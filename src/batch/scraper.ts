@@ -40,184 +40,187 @@ export async function scrapeBooks(client: Client) {
 
 	let browser: Browser | null = null;
 
-	if (isStorygraphScraperEnabled || isGoodreadsScraperEnabled) {
-		browser = await puppeteer.launch({
-			headless: false,
-			defaultViewport: {
-				height: 889,
-				width: 1268
-			},
-			args: ['--disable-blink-features=AutomationControlled'],
-			userDataDir: './chrome-profile'
+	try {
+		if (isStorygraphScraperEnabled || isGoodreadsScraperEnabled) {
+			browser = await puppeteer.launch({
+				headless: false,
+				defaultViewport: {
+					height: 889,
+					width: 1268
+				},
+				args: ['--disable-blink-features=AutomationControlled'],
+				userDataDir: './chrome-profile'
+			});
+			const hasStorygraphUsers = users.some(user => user.dataSourceCode === DataSourceCode.STORYGRAPH);
+			const hasGoodreadsUsers = users.some(user => user.dataSourceCode === DataSourceCode.GOODREADS);
+
+			if (hasStorygraphUsers && isStorygraphScraperEnabled) {
+				try {
+					const storyPage = await browser.newPage();
+					await storygraphScraper.signin(storyPage, isCloudflareCaptchaEnabled);
+					isStorygraphSignedIn = true;
+					await storyPage.close();
+				} catch (e) {
+					console.log('Error occurred when signing in to Storygraph.');
+					console.log(e);
+					await sendAdminMessage(`Error occurred when signing in to Storygraph:\n ${JSON.stringify(e)}`, client);
+				}
+			}
+
+			if (hasGoodreadsUsers && isGoodreadsScraperEnabled) {
+				try {
+					const goodreadPage = await browser.newPage();
+					await goodreadsScraper.signin(goodreadPage, false);
+					isGoodreadsSignedIn = true;
+					await goodreadPage.close();
+				} catch (e) {
+					console.log('Error occurred when signing in to Goodreads.');
+					console.log(e);
+					await sendAdminMessage(`Error occurred when signing in to Goodreads:\n ${JSON.stringify(e)}`, client);
+				}
+			}
+		}
+
+		const userErrorMap = new Map<string, number>();
+		let storygraphErrorCount = 0;
+		const incrementStorygraphErrorCount = (userId: string) => {
+			storygraphErrorCount++;
+			if (userErrorMap.has(userId)) {
+				userErrorMap.set(userId, userErrorMap.get(userId)! + 1);
+			}
+		}
+		let goodreadsErrorCount = 0;
+		const incrementGoodreadsErrorCount = (userId: string) => {
+			goodreadsErrorCount++;
+			if (userErrorMap.has(userId)) {
+				userErrorMap.set(userId, userErrorMap.get(userId)! + 1);
+			}
+		}
+
+		let storygraphActions: (PublishAction | undefined)[] = [];
+		let goodreadsActions: (PublishAction | undefined)[] = [];
+
+		const userResults = new Map<string, UserResult>();
+		users.forEach(user => userResults.set(user.id, {
+			currentResult1: [],
+			currentResult2: [],
+			finishedResult1: [],
+			finishedResult2: []
+		}));
+		
+		const userPageMap = new Map<string, Page>();
+		for (const user of users) {
+			if (browser) {
+				const page = await browser.newPage();
+				userPageMap.set(user.id, page);
+			}
+		}
+
+		console.log('*** STARTING FIRST SCRAPE ***');
+		let results = await Promise.all(users.map(async (user) => fetchUserCurrentBooks(user, client, userPageMap, isStorygraphScraperEnabled, isStorygraphSignedIn, isGoodreadsScraperEnabled, isGoodreadsSignedIn, incrementStorygraphErrorCount, incrementGoodreadsErrorCount)));
+		results.forEach(result => {
+			if (result) {
+				const userResult = userResults.get(result.userId)!;
+				userResult.currentResult1 = result.result;
+			}
 		});
-		const hasStorygraphUsers = users.some(user => user.dataSourceCode === DataSourceCode.STORYGRAPH);
-		const hasGoodreadsUsers = users.some(user => user.dataSourceCode === DataSourceCode.GOODREADS);
 
-		if (hasStorygraphUsers && isStorygraphScraperEnabled) {
-			try {
-				const storyPage = await browser.newPage();
-				await storygraphScraper.signin(storyPage, isCloudflareCaptchaEnabled);
-				isStorygraphSignedIn = true;
-				await storyPage.close();
-			} catch (e) {
-				console.log('Error occurred when signing in to Storygraph.');
-				console.log(e);
-				await sendAdminMessage(`Error occurred when signing in to Storygraph:\n ${JSON.stringify(e)}`, client);
+		console.log('*** STARTING SECOND SCRAPE ***');
+		results = await Promise.all(users.map(async (user) => fetchUserFinishedBooks(user, client, userPageMap, isStorygraphScraperEnabled, isStorygraphSignedIn, isGoodreadsScraperEnabled, isGoodreadsSignedIn, incrementStorygraphErrorCount, incrementGoodreadsErrorCount)));
+		results.forEach(result => {
+			if (result) {
+				const userResult = userResults.get(result.userId)!;
+				userResult.finishedResult1 = result.result;
+			}
+		});
+
+		console.log('*** STARTING THIRD SCRAPE ***');
+		results = await Promise.all(users.map(async (user) => fetchUserCurrentBooks(user, client, userPageMap, isStorygraphScraperEnabled, isStorygraphSignedIn, isGoodreadsScraperEnabled, isGoodreadsSignedIn, incrementStorygraphErrorCount, incrementGoodreadsErrorCount)));
+		results.forEach(result => {
+			if (result) {
+				const userResult = userResults.get(result.userId)!;
+				userResult.currentResult2 = result.result;
+			}
+		});
+
+		console.log('*** STARTING FOURTH SCRAPE ***');
+		results = await Promise.all(users.map(async (user) => fetchUserFinishedBooks(user, client, userPageMap, isStorygraphScraperEnabled, isStorygraphSignedIn, isGoodreadsScraperEnabled, isGoodreadsSignedIn, incrementStorygraphErrorCount, incrementGoodreadsErrorCount)));
+		results.forEach(result => {
+			if (result) {
+				const userResult = userResults.get(result.userId)!;
+				userResult.finishedResult2 = result.result;
+			}
+		});
+
+		for (const user of users) {
+			if (isStorygraphScraperEnabled && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
+				const result = userResults.get(user.id)!;
+				if (userErrorMap.has(user.id)) {
+					console.log(`${user.dataSourceUserId} has errors, skipping user actions`);
+					console.log(`${user.dataSourceUserId} Results: `, result);
+				} else {
+					storygraphActions.push(await storygraphScraper.handleUsersBooks(user, result, client));
+				}
+			} else if (isGoodreadsScraperEnabled && user.dataSourceCode === DataSourceCode.GOODREADS && isGoodreadsSignedIn) {
+				const result = userResults.get(user.id)!;
+				if (userErrorMap.has(user.id)) {
+					console.log(`${user.dataSourceUserId} has errors, skipping user actions`);
+					console.log(`${user.dataSourceUserId} Results: `, result);
+				} else {
+					goodreadsActions.push(await goodreadsScraper.handleUsersBooks(user, result, client));
+				}
 			}
 		}
 
-		if (hasGoodreadsUsers && isGoodreadsScraperEnabled) {
-			try {
-				const goodreadPage = await browser.newPage();
-				await goodreadsScraper.signin(goodreadPage, false);
-				isGoodreadsSignedIn = true;
-				await goodreadPage.close();
-			} catch (e) {
-				console.log('Error occurred when signing in to Goodreads.');
-				console.log(e);
-				await sendAdminMessage(`Error occurred when signing in to Goodreads:\n ${JSON.stringify(e)}`, client);
+		await handleActions(storygraphActions, isStorygraphScraperEnabled, DataSourceCode.STORYGRAPH, client);
+		await handleActions(goodreadsActions, isGoodreadsScraperEnabled, DataSourceCode.GOODREADS, client);
+
+		const storygraphUserCount = users.filter(user => user.dataSourceCode === DataSourceCode.STORYGRAPH).length;
+		const goodreadsUserCount = users.filter(user => user.dataSourceCode === DataSourceCode.GOODREADS).length;
+
+		const errorAlertHandler = async (errorCount: number, userCount: number, client: Client, message: string) => {
+			if (errorCount > 0 && userCount > 0 && errorCount / (userCount * 4) >= ERROR_ALERT_THRESHOLD) {
+				await sendAdminMessage(message, client);
 			}
-		}
-	}
+		};
 
-	const userErrorMap = new Map<string, number>();
-	let storygraphErrorCount = 0;
-	const incrementStorygraphErrorCount = (userId: string) => {
-		storygraphErrorCount++;
-		if (userErrorMap.has(userId)) {
-			userErrorMap.set(userId, userErrorMap.get(userId)! + 1);
-		}
-	}
-	let goodreadsErrorCount = 0;
-	const incrementGoodreadsErrorCount = (userId: string) => {
-		goodreadsErrorCount++;
-		if (userErrorMap.has(userId)) {
-			userErrorMap.set(userId, userErrorMap.get(userId)! + 1);
-		}
-	}
+		console.log('Total number of errors for this run:', storygraphErrorCount + goodreadsErrorCount);
+		console.log('Error map:', userErrorMap);
 
-	let storygraphActions: (PublishAction | undefined)[] = [];
-	let goodreadsActions: (PublishAction | undefined)[] = [];
+		await errorAlertHandler(
+			storygraphErrorCount,
+			storygraphUserCount,
+			client,
+			`The total number of Storygraph users with errors is greater than 80%, total errors: ${storygraphErrorCount} out of ${storygraphUserCount} users`
+		);
 
-	const userResults = new Map<string, UserResult>();
-	users.forEach(user => userResults.set(user.id, {
-		currentResult1: [],
-		currentResult2: [],
-		finishedResult1: [],
-		finishedResult2: []
-	}));
-	
-	const userPageMap = new Map<string, Page>();
-	for (const user of users) {
+		await errorAlertHandler(
+			goodreadsErrorCount,
+			goodreadsUserCount,
+			client,
+			`The total number of Goodreads users with errors is greater than 80%, total errors: ${goodreadsErrorCount} out of ${goodreadsUserCount} users`
+		);
+
+		if (storygraphErrorCount === storygraphUserCount && storygraphUserCount >= 5) {
+			console.log('All Storygraph users have errors, manually restarting Booktracker');
+			await sendAdminMessage('All Storygraph users have errors, manually restarting Booktracker', client);
+			restartPm2();
+			return;
+		}
+
+		if (goodreadsErrorCount === goodreadsUserCount && goodreadsUserCount >= 5) {
+			console.log('All Goodreads users have errors, manually restarting Booktracker');
+			await sendAdminMessage('All Goodreads users have errors, manually restarting Booktracker', client);
+			restartPm2();
+			return;
+		}
+	} finally {
 		if (browser) {
-			const page = await browser.newPage();
-			userPageMap.set(user.id, page);
+			browser.close();
 		}
 	}
 
-	console.log('*** STARTING FIRST SCRAPE ***');
-	let results = await Promise.all(users.map(async (user) => fetchUserCurrentBooks(user, client, userPageMap, isStorygraphScraperEnabled, isStorygraphSignedIn, isGoodreadsScraperEnabled, isGoodreadsSignedIn, incrementStorygraphErrorCount, incrementGoodreadsErrorCount)));
-	results.forEach(result => {
-		if (result) {
-			const userResult = userResults.get(result.userId)!;
-			userResult.currentResult1 = result.result;
-		}
-	});
-
-	console.log('*** STARTING SECOND SCRAPE ***');
-	results = await Promise.all(users.map(async (user) => fetchUserFinishedBooks(user, client, userPageMap, isStorygraphScraperEnabled, isStorygraphSignedIn, isGoodreadsScraperEnabled, isGoodreadsSignedIn, incrementStorygraphErrorCount, incrementGoodreadsErrorCount)));
-	results.forEach(result => {
-		if (result) {
-			const userResult = userResults.get(result.userId)!;
-			userResult.finishedResult1 = result.result;
-		}
-	});
-
-	console.log('*** STARTING THIRD SCRAPE ***');
-	results = await Promise.all(users.map(async (user) => fetchUserCurrentBooks(user, client, userPageMap, isStorygraphScraperEnabled, isStorygraphSignedIn, isGoodreadsScraperEnabled, isGoodreadsSignedIn, incrementStorygraphErrorCount, incrementGoodreadsErrorCount)));
-	results.forEach(result => {
-		if (result) {
-			const userResult = userResults.get(result.userId)!;
-			userResult.currentResult2 = result.result;
-		}
-	});
-
-	console.log('*** STARTING FOURTH SCRAPE ***');
-	results = await Promise.all(users.map(async (user) => fetchUserFinishedBooks(user, client, userPageMap, isStorygraphScraperEnabled, isStorygraphSignedIn, isGoodreadsScraperEnabled, isGoodreadsSignedIn, incrementStorygraphErrorCount, incrementGoodreadsErrorCount)));
-	results.forEach(result => {
-		if (result) {
-			const userResult = userResults.get(result.userId)!;
-			userResult.finishedResult2 = result.result;
-		}
-	});
-
-	for (const user of users) {
-		if (isStorygraphScraperEnabled && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
-			const result = userResults.get(user.id)!;
-			if (userErrorMap.has(user.id)) {
-				console.log(`${user.dataSourceUserId} has errors, skipping user actions`);
-				console.log(`${user.dataSourceUserId} Results: `, result);
-			} else {
-				storygraphActions.push(await storygraphScraper.handleUsersBooks(user, result, client));
-			}
-		} else if (isGoodreadsScraperEnabled && user.dataSourceCode === DataSourceCode.GOODREADS && isGoodreadsSignedIn) {
-			const result = userResults.get(user.id)!;
-			if (userErrorMap.has(user.id)) {
-				console.log(`${user.dataSourceUserId} has errors, skipping user actions`);
-				console.log(`${user.dataSourceUserId} Results: `, result);
-			} else {
-				goodreadsActions.push(await goodreadsScraper.handleUsersBooks(user, result, client));
-			}
-		}
-	}
-
-
-	await handleActions(storygraphActions, isStorygraphScraperEnabled, DataSourceCode.STORYGRAPH, client);
-	await handleActions(goodreadsActions, isGoodreadsScraperEnabled, DataSourceCode.GOODREADS, client);
-
-	if (browser) {
-		await browser.close();
-	}
-
-	const storygraphUserCount = users.filter(user => user.dataSourceCode === DataSourceCode.STORYGRAPH).length;
-	const goodreadsUserCount = users.filter(user => user.dataSourceCode === DataSourceCode.GOODREADS).length;
-
-	const errorAlertHandler = async (errorCount: number, userCount: number, client: Client, message: string) => {
-		if (errorCount > 0 && userCount > 0 && errorCount / (userCount * 4) >= ERROR_ALERT_THRESHOLD) {
-			await sendAdminMessage(message, client);
-		}
-	};
-
-	console.log('Total number of errors for this run:', storygraphErrorCount + goodreadsErrorCount);
-	console.log('Error map:', userErrorMap);
-
-	await errorAlertHandler(
-		storygraphErrorCount,
-		storygraphUserCount,
-		client,
-		`The total number of Storygraph users with errors is greater than 80%, total errors: ${storygraphErrorCount} out of ${storygraphUserCount} users`
-	);
-
-	await errorAlertHandler(
-		goodreadsErrorCount,
-		goodreadsUserCount,
-		client,
-		`The total number of Goodreads users with errors is greater than 80%, total errors: ${goodreadsErrorCount} out of ${goodreadsUserCount} users`
-	);
-
-	if (storygraphErrorCount === storygraphUserCount && storygraphUserCount >= 5) {
-		console.log('All Storygraph users have errors, manually restarting Booktracker');
-		await sendAdminMessage('All Storygraph users have errors, manually restarting Booktracker', client);
-		restartPm2();
-		return;
-	}
-
-	if (goodreadsErrorCount === goodreadsUserCount && goodreadsUserCount >= 5) {
-		console.log('All Goodreads users have errors, manually restarting Booktracker');
-		await sendAdminMessage('All Goodreads users have errors, manually restarting Booktracker', client);
-		restartPm2();
-		return;
-	}
+	
 }
 
 async function fetchUserCurrentBooks(
