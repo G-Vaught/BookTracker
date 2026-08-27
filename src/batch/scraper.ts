@@ -81,19 +81,23 @@ export async function scrapeBooks(client: Client) {
 			}
 		}
 
-		const userErrorMap = new Map<string, number>();
+		const userErrorMap = new Map<string, string[]>();
 		let storygraphErrorCount = 0;
-		const incrementStorygraphErrorCount = (userId: string) => {
+		const incrementStorygraphErrorCount = (userId: string, error: string) => {
 			storygraphErrorCount++;
 			if (userErrorMap.has(userId)) {
-				userErrorMap.set(userId, userErrorMap.get(userId)! + 1);
+				userErrorMap.get(userId)!.push(error);
+			} else {
+				userErrorMap.set(userId, [error]);
 			}
 		}
 		let goodreadsErrorCount = 0;
-		const incrementGoodreadsErrorCount = (userId: string) => {
+		const incrementGoodreadsErrorCount = (userId: string, error: string) => {
 			goodreadsErrorCount++;
 			if (userErrorMap.has(userId)) {
-				userErrorMap.set(userId, userErrorMap.get(userId)! + 1);
+				userErrorMap.get(userId)!.push(error);
+			} else {
+				userErrorMap.set(userId, [error]);
 			}
 		}
 
@@ -231,8 +235,8 @@ async function fetchUserCurrentBooks(
 	isStorygraphSignedIn: boolean,
 	isGoodreadsScraperEnabled: boolean, 
 	isGoodreadsSignedIn: boolean,
-	incrementStorygraphErrorCount: (userId: string) => void, 
-	incrementGoodreadsErrorCount: (userId: string) => void) {
+	incrementStorygraphErrorCount: (userId: string, error: string) => void, 
+	incrementGoodreadsErrorCount: (userId: string, error: string) => void) {
 	try {
 		if (isStorygraphScraperEnabled && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
 			const page = userPageMap.get(user.id);
@@ -255,11 +259,22 @@ async function fetchUserCurrentBooks(
 		if (e.name !== 'TimeoutError' && Object.keys(e).length > 0) {
 			handleError(user, e, client);
 		}
-		if (user.dataSourceCode === DataSourceCode.STORYGRAPH) {
-			incrementStorygraphErrorCount(user.id);
-		}
-		if (user.dataSourceCode === DataSourceCode.GOODREADS) {
-			incrementGoodreadsErrorCount(user.id);
+		if (e instanceof Error) {
+			if (user.dataSourceCode === DataSourceCode.STORYGRAPH) {
+				incrementStorygraphErrorCount(user.id, e.message);
+			}
+			if (user.dataSourceCode === DataSourceCode.GOODREADS) {
+				incrementGoodreadsErrorCount(user.id, e.message);
+			}
+
+		} else {
+			console.error(`Error scraping finished book for user ${user.dataSourceUserId}: ${e}`)
+			if (user.dataSourceCode === DataSourceCode.STORYGRAPH) {
+				incrementStorygraphErrorCount(user.id, 'Unknown Error');
+			}
+			if (user.dataSourceCode === DataSourceCode.GOODREADS) {
+				incrementGoodreadsErrorCount(user.id, 'Unknown Error');
+			}
 		}
 	}
 }
@@ -271,8 +286,8 @@ async function fetchUserFinishedBooks(user: UserWithBook,
 	isStorygraphSignedIn: boolean,
 	isGoodreadsScraperEnabled: boolean, 
 	isGoodreadsSignedIn: boolean,
-	incrementStorygraphErrorCount: (userId: string) => void, 
-	incrementGoodreadsErrorCount: (userId: string) => void) {
+	incrementStorygraphErrorCount: (userId: string, error: string) => void, 
+	incrementGoodreadsErrorCount: (userId: string, error: string) => void) {
 	try {
 			if (isStorygraphScraperEnabled && user.dataSourceCode === DataSourceCode.STORYGRAPH && isStorygraphSignedIn) {
 				const page = userPageMap.get(user.id);
@@ -295,11 +310,22 @@ async function fetchUserFinishedBooks(user: UserWithBook,
 			if (e.name !== 'TimeoutError' && Object.keys(e).length > 0) {
 				handleError(user, e, client);
 			}
-			if (user.dataSourceCode === DataSourceCode.STORYGRAPH) {
-				incrementStorygraphErrorCount(user.id);
-			}
-			if (user.dataSourceCode === DataSourceCode.GOODREADS) {
-				incrementGoodreadsErrorCount(user.id);
+			if (e instanceof Error) {
+				if (user.dataSourceCode === DataSourceCode.STORYGRAPH) {
+					incrementStorygraphErrorCount(user.id, e.message);
+				}
+				if (user.dataSourceCode === DataSourceCode.GOODREADS) {
+					incrementGoodreadsErrorCount(user.id, e.message);
+				}
+
+			} else {
+				console.error(`Error scraping finished book for user ${user.dataSourceUserId}: ${e}`)
+				if (user.dataSourceCode === DataSourceCode.STORYGRAPH) {
+					incrementStorygraphErrorCount(user.id, 'Unknown Error');
+				}
+				if (user.dataSourceCode === DataSourceCode.GOODREADS) {
+					incrementGoodreadsErrorCount(user.id, 'Unknown Error');
+				}
 			}
 		}
 }
